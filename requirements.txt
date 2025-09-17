@@ -1,0 +1,7 @@
+requests
+Pillow
+transformers
+torch
+flask
+python-dotenv
+redis
