@@ -14,11 +14,6 @@ def generate_spacy_tags(caption: str) -> List[str]:
     # Use noun_chunks + nouns + adjectives, then dedupe and limit
     doc = NLP(caption)
     candidates_tags = []
-    # noun chunks (phrases)
-    for chunk in doc.noun_chunks:
-        txt = chunk.text.strip().lower()
-        if len(txt) > 1:
-            candidates_tags.append(txt)
     # nouns and proper nouns and adjectives
     for token in doc:
         if token.pos_ in {"NOUN", "PROPN", "ADJ"} and not token.is_stop and token.is_alpha:
