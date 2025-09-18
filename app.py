@@ -18,9 +18,6 @@ _, model, _ = initialize_model()
 REDIS_CACHE_TTL = 60 * 60 * 24  # cache for 24h
 rdb = get_redis_client()
 
-#Reset Redis cache on startup (for testing; comment out in prod)
-rdb.flushdb()
-
 @app.route("/caption-images", methods=["POST"])
 def caption_images():
     if "images" not in request.files:
@@ -53,6 +50,10 @@ def caption_images():
 
     return jsonify({"results": results})
 
+@app.route("/reset-redis", methods=["GET"])
+def reset_redis():
+    rdb.flushdb()
+    return jsonify({"message": "Redis cache cleared"}), 200
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))

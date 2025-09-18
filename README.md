@@ -115,6 +115,26 @@ You can still run `blip_inference.py` directly for standalone captioning demos.
 
 ---
 
+### Redis Reset Endpoint
+
+`GET /reset-redis`
+
+Clears all cached results from Redis. Useful for testing or development when you want to reset the cache.
+
+Example using `curl`:
+
+```bash
+curl -X GET http://localhost:5001/reset-redis
+```
+
+Example response:
+
+```json
+{
+	"message": "Redis cache cleared"
+}
+```
+
 ### Redis Configuration
 
 Redis connection details are read from your `.env` file. Example variables:
