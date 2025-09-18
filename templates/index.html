@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>BLIP Image Captioning Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 20px;
+        }
+
+        header {
+            margin-bottom: 16px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        img.preview {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .actions {
+            margin: 12px 0;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background: #f8f8f8;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .tag {
+            background: #eef3ff;
+            border: 1px solid #cdd8ff;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        .small {
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>BLIP Image Captioning</h1>
+    <p class="small">Upload one or more images to generate captions and tags. Results are cached in Redis for faster
+        repeats.</p>
+</header>
+
+<form id="upload-form">
+    <input id="file-input" type="file" name="images" accept="image/*" multiple/>
+    <div class="actions">
+        <button id="submit-btn" type="submit">Caption Images</button>
+        <span id="status" class="small"></span>
+    </div>
+</form>
+
+<div id="previews"></div>
+<div id="results" style="display:none"></div>
+
+<script>
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const previewsEl = document.getElementById('previews');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function resetUI() {
+        statusEl.textContent = '';
+        resultsEl.innerHTML = '';
+        previewsEl.innerHTML = '';
+    }
+
+    fileInput.addEventListener('change', () => {
+        previewsEl.innerHTML = '';
+        const files = Array.from(fileInput.files || []);
+        files.forEach((file, i) => {
+            const url = URL.createObjectURL(file);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.index = String(i);
+            card.innerHTML = `
+          <img class="preview" src="${url}" alt="preview" />
+          <div style="flex:1">
+            <div><strong>${file.name}</strong></div>
+            <div class="small">${(file.size / 1024).toFixed(1)} KB</div>
+            <div class="small" data-role="caption">Caption: (pending...)</div>
+            <div class="tags" data-role="tags"></div>
+          </div>
+        `;
+            previewsEl.appendChild(card);
+        });
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        resultsEl.innerHTML = '';
+
+        const files = fileInput.files;
+        if (!files || files.length === 0) {
+            statusEl.innerHTML = '<span class="error">Please choose at least one image.</span>';
+            return;
+        }
+
+        const formData = new FormData();
+        for (const f of files) formData.append('images', f);
+
+        submitBtn.disabled = true;
+        statusEl.textContent = 'Uploading and captioning...';
+
+        try {
+            const resp = await fetch('/caption-images', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!resp.ok) {
+                const t = await resp.text();
+                throw new Error(`Server error (${resp.status}): ${t}`);
+            }
+
+            const data = await resp.json();
+            statusEl.textContent = 'Done';
+
+            (data.results || []).forEach((item, i) => {
+                const card = previewsEl.children[i];
+                if (!card) return;
+                const captionEl = card.querySelector('[data-role="caption"]');
+                const tagsEl = card.querySelector('[data-role="tags"]');
+                if (captionEl) captionEl.textContent = `Caption: ${item.caption || ''}`;
+                if (tagsEl) {
+                    tagsEl.innerHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+                }
+            });
+        } catch (err) {
+            console.error(err);
+            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

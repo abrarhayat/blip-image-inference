@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
 import hashlib
-from flask import Flask, json, request, jsonify
+import io
+from flask import Flask, json, request, jsonify, render_template
 from PIL import Image
 from blip_inference import initialize_model, infer_image_caption
 from spacy_tagging import generate_spacy_tags
@@ -17,6 +18,10 @@ _, model, _ = initialize_model()
 # Initialize Redis client
 REDIS_CACHE_TTL = 60 * 60 * 24  # cache for 24h
 rdb = get_redis_client()
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
 
 @app.route("/caption-images", methods=["POST"])
 def caption_images():

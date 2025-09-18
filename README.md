@@ -88,7 +88,7 @@ Example response:
 			"filename": "your_image.jpg",
 			"caption": "a woman sitting on the beach with her dog",
 			"tags": [
-				"woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog", ...
+				"woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog"
 			]
 		}
 	]
@@ -146,3 +146,25 @@ REDIS_DB=0
 ```
 
 See `.env.example` for a template.
+
+
+---
+
+### Optional Browser Test Page (index.html)
+
+An optional browser-based test page is included to help you try the API without writing a client. It is served by the Flask app at the root path `/` and lives at `templates/index.html`.
+
+How to use:
+1. Ensure Redis is running and the app is started: `python app.py`.
+2. Open your browser to `http://localhost:5001/` (or the port set in your `.env`).
+3. Use the file picker to select one or more images and click "Caption Images".
+4. For each image, you will see:
+   - A preview thumbnail.
+   - The generated caption when ready.
+   - Auto-generated tags shown as pills.
+
+Notes:
+- The page sends `multipart/form-data` to `POST /caption-images` with files under the `images` field.
+- Results are cached in Redis for 24 hours based on a SHA-256 hash of the image bytes. Re-uploading the same file will return cached results instantly.
+- You can clear the cache via `GET /reset-redis` (see section above).
+- This page is intended for local development and demos. If deploying publicly, harden or remove the route and template as needed.
