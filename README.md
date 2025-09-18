@@ -76,12 +76,21 @@ Redis must be running and accessible at the host/port specified in your `.env` f
 
 `POST /caption-images`
 
-Upload one or more images using multipart form data under the key `images`. The server will return captions for each image. Example response:
+
+Upload one or more images using multipart form data under the key `images`. The server will return captions and automatically generated tags for each image. Tags are extracted from the caption using spaCy NLP and NLTK bigrams, including noun phrases, nouns, adjectives, and common bigrams.
+
+Example response:
 
 ```json
 {
 	"results": [
-		{"filename": "your_image.jpg", "caption": "a woman sitting on the beach with her dog"}
+		{
+			"filename": "your_image.jpg",
+			"caption": "a woman sitting on the beach with her dog",
+			"tags": [
+				"woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog", ...
+			]
+		}
 	]
 }
 ```
@@ -91,6 +100,16 @@ Example using `curl`:
 ```bash
 curl -X POST -F "images=@your_image.jpg" http://localhost:5001/caption-images
 ```
+
+#### Tagging Feature
+
+The API includes a `tags` field in its response for each image. Tags are generated from the caption using spaCy and NLTK:
+
+- Noun phrases (noun_chunks)
+- Nouns, proper nouns, and adjectives
+- Simple bigrams (two-word combinations)
+
+This helps with downstream tasks such as search, filtering, and categorization.
 
 You can still run `blip_inference.py` directly for standalone captioning demos.
 
