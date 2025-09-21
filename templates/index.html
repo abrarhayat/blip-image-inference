@@ -80,7 +80,16 @@
 <body>
 <header>
     <h1>VLM Image Captioning Service</h1>
-    <p class="small">Current Model: <strong>{{ model_name }}</strong></p>
+    <div class="actions">
+        <label for="model-select" class="small">Model:</label>
+        <select id="model-select">
+            <option value="blip" {% if model_name == 'BlipForConditionalGeneration' %}selected{% endif %}>BLIP</option>
+            <option value="blip2" {% if model_name == 'Blip2ForConditionalGeneration' %}selected{% endif %}>BLIP2</option>
+            <option value="gemma" {% if model_name == 'Gemma3ForConditionalGeneration' %}selected{% endif %}>Gemma</option>
+            <option value="intern_vlm" {% if model_name == 'InternVLForConditionalGeneration' %}selected{% endif %}>Intern VLM</option>
+        </select>
+    </div>
+    <div><p class="small">Current Model: <strong id="current-model">{{ model_name }}</strong></p></div>
     <p class="small">Caption Prompt: <strong>{{ caption_prompt }}</strong></p>
     <p class="small">Upload one or more images to generate captions and tags. Results are cached in Redis for faster
         repeats.</p>
@@ -104,6 +113,28 @@
     const resultsEl = document.getElementById('results');
     const previewsEl = document.getElementById('previews');
     const submitBtn = document.getElementById('submit-btn');
+    const modelSelect = document.getElementById('model-select');
+    const currentModelEl = document.getElementById('current-model');
+
+    modelSelect.addEventListener('change', async () => {
+        const selectedModel = modelSelect.value;
+        statusEl.textContent = 'Switching model...';
+        try {
+            const resp = await fetch('/set-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: selectedModel })
+            });
+            if (!resp.ok) {
+                throw new Error('Failed to switch model');
+            }
+            const data = await resp.json();
+            currentModelEl.textContent = data.model_name || selectedModel;
+            statusEl.textContent = 'Model switched.';
+        } catch (err) {
+            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
+        }
+    });
 
     function resetUI() {
         statusEl.textContent = '';

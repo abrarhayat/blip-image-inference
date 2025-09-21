@@ -17,16 +17,22 @@ from transformers import AutoProcessor, BlipForConditionalGeneration, Blip2ForCo
 load_dotenv()
 app = Flask(__name__)
 
+# Global state for selected model
+SELECTED_MODEL_KEY = None
+processor = None
+model = None
+device = None
+model_name = None
+CAPTION_PROMPT = None
+
 # Load BLIP model + processor once (warm start)
-def get_model_and_processor(use_blip2, use_gemma, use_intern_vlm) -> tuple[AutoProcessor, 
-                                                                           Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration, 
-                                                                                 Gemma3ForConditionalGeneration, InternVLForConditionalGeneration]
-                                                                                 , str]:
-    if use_blip2:
+def get_model_and_processor(model_key) -> tuple[AutoProcessor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
+                                                                         Gemma3ForConditionalGeneration, InternVLForConditionalGeneration], str]:
+    if model_key == "blip2":
         return initialize_blip2_model()
-    elif use_gemma:
+    elif model_key == "gemma":
         return initialize_gemma_model()
-    elif use_intern_vlm:
+    elif model_key == "intern_vlm":
         return initialize_intern_vlm_model()
     else:
         return initialize_blip_model()
@@ -37,10 +43,21 @@ rdb = get_redis_client()
 
 @app.route("/", methods=["GET"])
 def index():
+    global model_name, CAPTION_PROMPT
     return render_template("index.html", model_name=model_name, caption_prompt=CAPTION_PROMPT or "No caption prompt provided.")
+@app.route("/set-model", methods=["POST"])
+def set_model():
+    global SELECTED_MODEL_KEY, processor, model, device, model_name
+    data = request.get_json()
+    model_key = data.get("model", "blip")
+    processor, model, device = get_model_and_processor(model_key)
+    model_name = type(model).__name__
+    SELECTED_MODEL_KEY = model_key
+    return jsonify({"model_name": model_name}), 200
 
 @app.route("/caption-images", methods=["POST"])
 def caption_images():
+    global processor, model, device, CAPTION_PROMPT
     if "images" not in request.files:
         return jsonify({"error": "No images uploaded"}), 400
 
@@ -95,8 +112,18 @@ if __name__ == "__main__":
     print(f"  Caption prompt: {args.caption_prompt}")
     print(f"  Port: {args.port}")
 
+    # Determine initial model key
+    if args.blip2:
+        SELECTED_MODEL_KEY = "blip2"
+    elif args.gemma:
+        SELECTED_MODEL_KEY = "gemma"
+    elif args.intern_vlm:
+        SELECTED_MODEL_KEY = "intern_vlm"
+    else:
+        SELECTED_MODEL_KEY = "blip"
+
     # Load model and processor based on user choice
-    processor, model, device = get_model_and_processor(args.blip2, args.gemma, args.intern_vlm)
+    processor, model, device = get_model_and_processor(SELECTED_MODEL_KEY)
     model_name = type(model).__name__
     print(f"Using model: {model_name} on device: {device}")
     # Set optional caption prompt
