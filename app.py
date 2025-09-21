@@ -45,6 +45,7 @@ rdb = get_redis_client()
 def index():
     global model_name, CAPTION_PROMPT
     return render_template("index.html", model_name=model_name, caption_prompt=CAPTION_PROMPT or "No caption prompt provided.")
+
 @app.route("/set-model", methods=["POST"])
 def set_model():
     global SELECTED_MODEL_KEY, processor, model, device, model_name

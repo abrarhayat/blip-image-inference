@@ -170,6 +170,36 @@ This helps with downstream tasks such as search, filtering, and categorization.
 
 ---
 
+### Model Selection Endpoint
+
+`POST /set-model`
+
+Change the currently active model for image captioning while the server is running. Send a JSON payload with the desired model key:
+
+Example request:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"model": "blip2"}' \
+     http://localhost:5001/set-model
+```
+
+Valid model keys:
+- `blip` (BLIP1)
+- `blip2` (BLIP2)
+- `gemma` (Gemma)
+- `intern_vlm` (InternVLM)
+
+Example response:
+```json
+{
+  "model_name": "Blip2ForConditionalGeneration"
+}
+```
+
+This endpoint allows you to switch models dynamically from the web UI or via API calls. All subsequent caption requests will use the selected model until changed again.
+
+---
+
 ### Redis Reset Endpoint
 
 `GET /reset-redis`

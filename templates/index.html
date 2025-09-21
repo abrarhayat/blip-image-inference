@@ -80,6 +80,7 @@
 <body>
 <header>
     <h1>VLM Image Captioning Service</h1>
+    <button id="reset-redis-btn" type="button">Reset Redis Cache</button>
     <div class="actions">
         <label for="model-select" class="small">Model:</label>
         <select id="model-select">
@@ -115,6 +116,21 @@
     const submitBtn = document.getElementById('submit-btn');
     const modelSelect = document.getElementById('model-select');
     const currentModelEl = document.getElementById('current-model');
+
+    const resetRedisBtn = document.getElementById('reset-redis-btn');
+    resetRedisBtn.addEventListener('click', async () => {
+        statusEl.textContent = 'Resetting Redis cache...';
+        try {
+            const resp = await fetch('/reset-redis', { method: 'GET' });
+            if (!resp.ok) {
+                throw new Error('Failed to reset Redis cache');
+            }
+            const data = await resp.json();
+            statusEl.textContent = data.message || 'Redis cache reset.';
+        } catch (err) {
+            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
+        }
+    });
 
     modelSelect.addEventListener('change', async () => {
         const selectedModel = modelSelect.value;
