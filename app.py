@@ -2,20 +2,32 @@ import os
 import argparse
 from dotenv import load_dotenv
 import hashlib
+from blip import initialize_blip_model, initialize_blip2_model
+from gemma import initialize_gemma_model
+from intern_vlm import initialize_intern_vlm_model
+from inference import infer_image_caption
 from flask import Flask, json, request, jsonify, render_template
 from PIL import Image
-from blip_inference import initialize_blip_model, initialize_blip2_model, infer_image_caption
 from spacy_tagging import generate_spacy_tags
 from redis_config import get_redis_client
+from typing import Union
+from transformers import AutoProcessor, BlipForConditionalGeneration, Blip2ForConditionalGeneration, Gemma3ForConditionalGeneration, InternVLForConditionalGeneration
 
 
 load_dotenv()
 app = Flask(__name__)
 
 # Load BLIP model + processor once (warm start)
-def get_model_and_processor(use_blip2):
+def get_model_and_processor(use_blip2, use_gemma, use_intern_vlm) -> tuple[AutoProcessor, 
+                                                                           Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration, 
+                                                                                 Gemma3ForConditionalGeneration, InternVLForConditionalGeneration]
+                                                                                 , str]:
     if use_blip2:
         return initialize_blip2_model()
+    elif use_gemma:
+        return initialize_gemma_model()
+    elif use_intern_vlm:
+        return initialize_intern_vlm_model()
     else:
         return initialize_blip_model()
 
@@ -25,7 +37,7 @@ rdb = get_redis_client()
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", model_name="BLIP2" if args.blip2 else "BLIP1", caption_prompt=CAPTION_PROMPT or "No caption prompt provided.")
+    return render_template("index.html", model_name=model_name, caption_prompt=CAPTION_PROMPT or "No caption prompt provided.")
 
 @app.route("/caption-images", methods=["POST"])
 def caption_images():
@@ -71,6 +83,8 @@ def reset_redis():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="BLIP Image Captioning Flask Server")
     parser.add_argument("--blip2", action="store_true", help="Use BLIP2 model (default: BLIP1)")
+    parser.add_argument("--gemma", action="store_true", help="Optionally use Gemma for inference")
+    parser.add_argument("--intern-vlm", action="store_true", help="Optionally use Intern VLM for inference")
     parser.add_argument("--caption-prompt", type=str, 
                         default=None, 
                         help="Optional caption prompt for inference")
@@ -78,12 +92,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Starting Flask server with options:")
-    print(f"  BLIP2 model: {args.blip2}")
     print(f"  Caption prompt: {args.caption_prompt}")
     print(f"  Port: {args.port}")
 
     # Load model and processor based on user choice
-    processor, model, device = get_model_and_processor(args.blip2)
+    processor, model, device = get_model_and_processor(args.blip2, args.gemma, args.intern_vlm)
+    model_name = type(model).__name__
+    print(f"Using model: {model_name} on device: {device}")
     # Set optional caption prompt
     CAPTION_PROMPT = args.caption_prompt
     port = args.port or int(os.getenv("PORT", 5001))

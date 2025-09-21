@@ -2,6 +2,7 @@ requests
 Pillow
 transformers
 torch
+torchvision
 flask
 python-dotenv
 redis

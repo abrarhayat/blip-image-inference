@@ -5,7 +5,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import unittest
 from PIL import Image
 import requests
-from blip_inference import initialize_blip_model, initialize_blip2_model, infer_image_caption
+from blip import initialize_blip_model, initialize_blip2_model
+from inference import infer_image_caption
 
 class TestBlipInference(unittest.TestCase):
     def setUp(self):

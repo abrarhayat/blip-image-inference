@@ -1,13 +1,16 @@
-# BLIP/BLIP2 Image Captioning Flask Server
+# Image Captioning Flask Server (BLIP, BLIP2, Gemma, InternVLM)
 
-This project supports both BLIP (Bootstrapped Language Image Pretraining) and BLIP2 models for image captioning. BLIP2 is an advanced vision-language model that builds on BLIP, offering improved performance and support for larger language models. You can select either BLIP or BLIP2 when running the Flask server. These models generate captions for images, both conditionally (with a prompt) and unconditionally.
 
-This project provides a Flask server for automatic image captioning using either BLIP or BLIP2 models from Hugging Face Transformers, with Redis caching for efficient repeated inference.
+This project provides a Flask server for automatic image captioning using multiple state-of-the-art models from Hugging Face Transformers, with Redis caching for efficient repeated inference.
 
-The server in this project exposes an API endpoint to upload images and receive captions and tags in response. Redis is used to cache results for faster repeated requests.
+Supported models for image captioning:
 
-- [Salesforce/blip-image-captioning-base](https://huggingface.co/Salesforce/blip-image-captioning-base)
-- [Salesforce/blip2-opt-2.7b](https://huggingface.co/Salesforce/blip2-opt-2.7b)
+- [BLIP (Salesforce/blip-image-captioning-base)](https://huggingface.co/Salesforce/blip-image-captioning-base)
+- [BLIP2 (Salesforce/blip2-opt-2.7b)](https://huggingface.co/Salesforce/blip2-opt-2.7b)
+- [Gemma (google/gemma-3-4b-it)](https://huggingface.co/google/gemma-3-4b-it)
+- [InternVLM (OpenGVLab/InternVL3-1B-hf)](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
+
+You can select which model to use for inference via command-line arguments when starting the server. The API endpoint allows you to upload images and receive captions and tags in response. Redis is used to cache results for faster repeated requests.
 
 ## Recommended Environment Setup
 
@@ -32,6 +35,7 @@ If you use a custom requirements file, ensure it includes:
 - pillow
 - transformers
 - torch
+- torchvision
 - redis
 - python-dotenv
 
@@ -66,25 +70,34 @@ The Flask server will read the port number from `.env` when starting.
 
 Start the Flask server:
 
-### Run with default settings (Base BLIP and no caption prompt)
+### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5000)
 
 ```bash
 python app.py
 ```
 
-### Run with specific arguments
 
-You can choose which BLIP model to use and optionally provide a caption prompt via command-line arguments when starting the Flask server:
+### Run with options (Language Model, Optional Caption Prompt and server port)
+
+
+If ***no model argument is provided***, the server will use the ***base BLIP model*** by default.
+
+You can choose which model to use and optionally provide a caption prompt via command-line arguments when starting the Flask server:
 
 ```bash
 python app.py --blip2 --caption-prompt "Question: Describe the image as someone who is posting this on social media. Answer:"
+python app.py --gemma --caption-prompt "What animal is on the candy."
+python app.py --intern-vlm --caption-prompt "Please describe the image explicitly."
 ```
 
 **Arguments:**
 
-- `--blip2`: Use the BLIP2 model (`Salesforce/blip2-opt-2.7b`). Omit for BLIP1 (`Salesforce/blip-image-captioning-base`).
+- `--blip2`: Use the BLIP2 model (`Salesforce/blip2-opt-2.7b`). 
+- `--gemma`: Use the Gemma model (`google/gemma-3-4b-it`).
+- `--intern-vlm`: Use the InternVLM model (`OpenGVLab/InternVL3-1B-hf`).
 - `--caption-prompt`: Optional prompt to guide caption generation. If omitted, the model will generate an unconditional caption.
 - `--port`: Specify the port for the Flask server (default is 5001, or value from `.env`). Example: `--port 8080`
+
 
 ## Sample Caption Prompts
 
@@ -96,10 +109,21 @@ python app.py --blip2 --caption-prompt "Question: Describe the image as someone 
 
 - "Question: Describe the image as someone who is posting this on social media. Answer:"
 
+**Gemma (google/gemma-3-4b-it):**
+
+- "What animal is on the candy."
+
+**InternVLM (OpenGVLab/InternVL3-1B-hf):**
+
+- "Please describe the image explicitly."
+
+
 ### Model Documentation & Best Practices
 
 - [BLIP1 Documentation](https://huggingface.co/Salesforce/blip-image-captioning-base)
 - [BLIP2 Documentation](https://huggingface.co/Salesforce/blip2-opt-2.7b)
+- [Gemma Documentation](https://huggingface.co/google/gemma-3-4b-it)
+- [InternVLM Documentation](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
 
 Refer to the Hugging Face model cards above for more prompt examples and best practices for each model.
 
@@ -143,8 +167,6 @@ The API includes a `tags` field in its response for each image. Tags are generat
 - Simple bigrams (two-word combinations)
 
 This helps with downstream tasks such as search, filtering, and categorization.
-
-You can still run `blip_inference.py` directly for standalone captioning demos.
 
 ---
 
@@ -204,7 +226,7 @@ Notes:
 
 ## Unit Tests
 
-Unit tests for BLIP and BLIP2 inference are provided in `tests/test_blip_inference.py`. These tests verify that both models generate expected captions for a sample image, using both conditional and unconditional prompts.
+Unit tests for inference are provided in `tests/` directory. These tests verify that both models generate expected captions for a sample image, using both conditional and unconditional prompts.
 
 To run the tests:
 
