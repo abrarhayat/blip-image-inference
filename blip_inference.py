@@ -1,10 +1,12 @@
+import time
 import requests
 from typing import Union
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
 import torch
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+print(f"Using device: {DEVICE}")
 
 def initialize_blip_model():
     """Initialize the BLIP model and processor."""
@@ -23,6 +25,7 @@ def infer_image_caption(processor: Union[BlipProcessor, Blip2Processor],
                         model: Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration], 
                         device: str, image: Image.Image, optional_caption_prompt: str = None):
     """Run inference on a single image and return the caption."""
+    start_time = time.time()
     if optional_caption_prompt:
         inputs = processor(images=image, text=optional_caption_prompt, return_tensors="pt").to(device)
     else:
@@ -34,6 +37,8 @@ def infer_image_caption(processor: Union[BlipProcessor, Blip2Processor],
         # Remove the optional caption prefix if it was used
         if optional_caption_prompt and caption.lower().startswith(optional_caption_prompt.lower()):
             caption = caption.replace(optional_caption_prompt, '').strip()
+        end_time = time.time()
+        print(f"Inference time: {end_time - start_time} seconds")    
     return caption
 
 def run_demo_inference():
@@ -44,10 +49,12 @@ def run_demo_inference():
     raw_image = Image.open(requests.get(IMAGE_URL, stream=True, timeout=5).raw).convert('RGB')
     # conditional image captioning
     CAPTIONING_TEXT = "a photo of"
+    print("Captioning with prompt: '", CAPTIONING_TEXT, "'")
     print(infer_image_caption(processor, model, DEVICE, raw_image, CAPTIONING_TEXT))
     # >>> a photo of a woman sitting on the beach with her dog
 
     # unconditional image captioning
+    print("Captioning without prompt:")
     print(infer_image_caption(processor, model, DEVICE, raw_image))
     # >>> a woman sitting on the beach with her dog
     print("\n\n")
@@ -60,10 +67,12 @@ def run_demo_inference_blip2():
     raw_image = Image.open(requests.get(IMAGE_URL, stream=True, timeout=5).raw).convert('RGB')
     # conditional image captioning
     CAPTIONING_TEXT = "Question: Describe the image as someone who is posting this on social media. Answer:"
+    print("Captioning with prompt: '", CAPTIONING_TEXT, "'")
     print(infer_image_caption(processor, model, DEVICE, raw_image, CAPTIONING_TEXT))
     # >>> A woman is sitting on the beach with her dog and is holding a cell phone in her hand.
 
     # unconditional image captioning
+    print("Captioning without prompt:")
     print(infer_image_caption(processor, model, DEVICE, raw_image))
     # >>> a woman sitting on the beach with her dog
     print("\n\n")  
