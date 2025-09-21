@@ -118,6 +118,7 @@ python app.py --intern-vlm --caption-prompt "Please describe the image explicitl
 - "Please describe the image explicitly."
 
 
+<a id="model-docs"></a>
 ### Model Documentation & Best Practices
 
 - [BLIP1 Documentation](https://huggingface.co/Salesforce/blip-image-captioning-base)
@@ -197,6 +198,48 @@ Example response:
 ```
 
 This endpoint allows you to switch models dynamically from the web UI or via API calls. All subsequent caption requests will use the selected model until changed again.
+
+---
+
+### Caption Prompt Endpoint
+
+`POST /set-caption-prompt`
+
+Set or update the caption prompt used to guide caption generation. The prompt is optional; if not set (or cleared) the models will produce an unconditional caption. See the model-specific guidance in the [Model Documentation & Best Practices](#model-docs) section.
+
+Send a JSON body with the key `caption_prompt`:
+
+Example request:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+		 -d '{"caption_prompt": "Describe the scene focusing on emotions."}' \
+		 http://localhost:5001/set-caption-prompt
+```
+
+Example response:
+```json
+{
+	"caption_prompt": "Describe the scene focusing on emotions."
+}
+```
+
+Clearing / removing the prompt:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+		 -d '{"caption_prompt": ""}' \
+		 http://localhost:5001/set-caption-prompt
+```
+Response when cleared (normalized to null/None internally):
+```json
+{
+	"caption_prompt": null
+}
+```
+
+Notes:
+- The current prompt is displayed on the test page and updates immediately after saving.
+- An empty or whitespace-only string is treated as `null` (no prompt) for clearer downstream logic.
+- The prompt applies to all subsequent `/caption-images` requests until changed again.
 
 ---
 

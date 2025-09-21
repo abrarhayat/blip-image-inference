@@ -23,19 +23,28 @@ processor = None
 model = None
 device = None
 model_name = None
-CAPTION_PROMPT = None
+caption_prompt = None
+
+#Store models loaded in a dictionary for easy access
+MODEL_CACHE = {}
 
 # Load BLIP model + processor once (warm start)
 def get_model_and_processor(model_key) -> tuple[AutoProcessor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
                                                                          Gemma3ForConditionalGeneration, InternVLForConditionalGeneration], str]:
+    model_result = MODEL_CACHE.get(model_key)
+    if model_result:
+        return model_result
+    
     if model_key == "blip2":
-        return initialize_blip2_model()
+        MODEL_CACHE[model_key] = initialize_blip2_model()
     elif model_key == "gemma":
-        return initialize_gemma_model()
+        MODEL_CACHE[model_key] = initialize_gemma_model()
     elif model_key == "intern_vlm":
-        return initialize_intern_vlm_model()
+        MODEL_CACHE[model_key] = initialize_intern_vlm_model()
     else:
-        return initialize_blip_model()
+        MODEL_CACHE[model_key] = initialize_blip_model()
+        
+    return MODEL_CACHE[model_key]
 
 # Initialize Redis client
 REDIS_CACHE_TTL = 60 * 60 * 24  # cache for 24h
@@ -43,8 +52,8 @@ rdb = get_redis_client()
 
 @app.route("/", methods=["GET"])
 def index():
-    global model_name, CAPTION_PROMPT
-    return render_template("index.html", model_name=model_name, caption_prompt=CAPTION_PROMPT or "No caption prompt provided.")
+    global model_name, caption_prompt
+    return render_template("index.html", model_name=model_name, caption_prompt=caption_prompt)
 
 @app.route("/set-model", methods=["POST"])
 def set_model():
@@ -56,9 +65,18 @@ def set_model():
     SELECTED_MODEL_KEY = model_key
     return jsonify({"model_name": model_name}), 200
 
+@app.route("/set-caption-prompt", methods=["POST"])
+def set_caption_prompt():
+    global caption_prompt
+    data = request.get_json(silent=True) or {}
+    new_prompt = data.get("caption_prompt", "")
+    # Normalize empty prompt to None for clearer downstream handling
+    caption_prompt = new_prompt.strip() or None
+    return jsonify({"caption_prompt": caption_prompt}), 200
+
 @app.route("/caption-images", methods=["POST"])
 def caption_images():
-    global processor, model, device, CAPTION_PROMPT
+    global processor, model, device, caption_prompt
     if "images" not in request.files:
         return jsonify({"error": "No images uploaded"}), 400
 
@@ -79,7 +97,7 @@ def caption_images():
 
         # Process new image
         image = Image.open(f.stream).convert("RGB")
-        caption = infer_image_caption(processor, model, device, image, CAPTION_PROMPT)
+        caption = infer_image_caption(processor, model, device, image, caption_prompt)
         if(caption is None or len(caption) == 0):
             caption = "No caption could be generated."
             results.append({"filename": f.filename, "caption": caption, "tags": []})
@@ -128,6 +146,6 @@ if __name__ == "__main__":
     model_name = type(model).__name__
     print(f"Using model: {model_name} on device: {device}")
     # Set optional caption prompt
-    CAPTION_PROMPT = args.caption_prompt
+    caption_prompt = args.caption_prompt
     port = args.port or int(os.getenv("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=True)
