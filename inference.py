@@ -1,13 +1,15 @@
 import time
 from typing import Union
+
+import torch
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration, \
     Gemma3Processor, Gemma3ForConditionalGeneration, InternVLProcessor, InternVLForConditionalGeneration
-import torch
+
 
 def infer_image_caption(processor: Union[BlipProcessor, Blip2Processor, Gemma3Processor, InternVLProcessor],
                         model: Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
-                                     Gemma3ForConditionalGeneration, InternVLForConditionalGeneration],
+                        Gemma3ForConditionalGeneration, InternVLForConditionalGeneration],
                         device: str, image: Image.Image, optional_caption_prompt: str = None):
     start_time = time.time()
     if isinstance(model, Gemma3ForConditionalGeneration) or isinstance(model, InternVLForConditionalGeneration):
@@ -16,21 +18,23 @@ def infer_image_caption(processor: Union[BlipProcessor, Blip2Processor, Gemma3Pr
             {
                 "role": "system",
                 "content": [
-                    {"type": "text", "text": "You are a helpful assistant who generates captions for images." if not optional_caption_prompt else optional_caption_prompt}
+                    {"type": "text",
+                     "text": "You are a helpful assistant who generates captions for images." if not optional_caption_prompt else optional_caption_prompt}
                 ]
             },
             {
                 "role": "user", "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": "Generate a caption for this image. Keep the caption concise within 10 words. Return a single caption without any additional text."},
-                ]
+                {"type": "image", "image": image},
+                {"type": "text",
+                 "text": "Generate a caption for this image. Keep the caption concise within 10 words. Return a single caption without any additional text."},
+            ]
             }
         ]
         inputs = processor.apply_chat_template(
-        messages,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
+            messages,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
             add_generation_prompt=True,
         ).to(model.device)
         output = model.generate(**inputs, max_new_tokens=50, cache_implementation="static")
@@ -92,8 +96,8 @@ def infer_collective_caption(processor: Gemma3Processor,
     )
     messages = [
         {"role": "system", "content": [{"type": "text", "text": system_text}]},
-        {"role": "user", "content": ([{ "type": "image", "image": img } for img in images] +
-                                         [{"type": "text", "text": user_instruction}])}
+        {"role": "user", "content": ([{"type": "image", "image": img} for img in images] +
+                                     [{"type": "text", "text": user_instruction}])}
     ]
     inputs = processor.apply_chat_template(
         messages,

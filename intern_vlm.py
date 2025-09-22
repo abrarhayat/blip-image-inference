@@ -19,8 +19,10 @@ def run_demo_intern_vlm_inference():
         {
             "role": "user",
             "content": [
-                {"type": "image", "url": "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/pipeline-cat-chonk.jpeg"},
-                {"type": "text", "text": "Generate a caption for this image. Keep the caption concise within 10 words. Return a single caption without any additional text."}
+                {"type": "image",
+                 "url": "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/pipeline-cat-chonk.jpeg"},
+                {"type": "text",
+                 "text": "Generate a caption for this image. Keep the caption concise within 10 words. Return a single caption without any additional text."}
             ]
         },
     ]
@@ -35,6 +37,7 @@ def run_demo_intern_vlm_inference():
     outputs = model.generate(**inputs, max_new_tokens=40)
     print(processor.decode(outputs[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True))
     # >>> A ginger and gray cat walking in the snow.
+
 
 if __name__ == "__main__":
     run_demo_intern_vlm_inference()

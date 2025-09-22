@@ -1,18 +1,20 @@
-import os
 import argparse
-from dotenv import load_dotenv
 import hashlib
+import os
+from typing import Union
+
+from PIL import Image
+from dotenv import load_dotenv
+from flask import Flask, json, request, jsonify, render_template
+from transformers import Gemma3Processor, BlipForConditionalGeneration, Blip2ForConditionalGeneration, \
+    Gemma3ForConditionalGeneration, InternVLForConditionalGeneration
+
 from blip import initialize_blip_model, initialize_blip2_model
 from gemma import initialize_gemma_model
-from intern_vlm import initialize_intern_vlm_model
 from inference import infer_image_caption, infer_collective_caption
-from flask import Flask, json, request, jsonify, render_template
-from PIL import Image
-from spacy_tagging import generate_spacy_tags
+from intern_vlm import initialize_intern_vlm_model
 from redis_config import get_redis_client
-from typing import Union
-from transformers import Gemma3Processor, BlipForConditionalGeneration, Blip2ForConditionalGeneration, Gemma3ForConditionalGeneration, InternVLForConditionalGeneration
-
+from spacy_tagging import generate_spacy_tags
 
 load_dotenv()
 app = Flask(__name__)
@@ -25,16 +27,18 @@ device = None
 model_name = None
 caption_prompt = None
 
-#Store models loaded in a dictionary for easy access
+# Store models loaded in a dictionary for easy access
 MODEL_CACHE = {}
 
+
 # Load BLIP model + processor once (warm start)
-def get_model_and_processor(model_key) -> tuple[Gemma3Processor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
-                                                                         Gemma3ForConditionalGeneration, InternVLForConditionalGeneration], str]:
+def get_model_and_processor(model_key) -> tuple[
+    Gemma3Processor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
+    Gemma3ForConditionalGeneration, InternVLForConditionalGeneration], str]:
     model_result = MODEL_CACHE.get(model_key)
     if model_result:
         return model_result
-    
+
     if model_key == "blip2":
         MODEL_CACHE[model_key] = initialize_blip2_model()
     elif model_key == "gemma":
@@ -43,17 +47,20 @@ def get_model_and_processor(model_key) -> tuple[Gemma3Processor, Union[BlipForCo
         MODEL_CACHE[model_key] = initialize_intern_vlm_model()
     else:
         MODEL_CACHE[model_key] = initialize_blip_model()
-        
+
     return MODEL_CACHE[model_key]
+
 
 # Initialize Redis client
 REDIS_CACHE_TTL = 60 * 60 * 24  # cache for 24h
 rdb = get_redis_client()
 
+
 @app.route("/", methods=["GET"])
 def index():
     global model_name, caption_prompt
     return render_template("index.html", model_name=model_name, caption_prompt=caption_prompt)
+
 
 @app.route("/set-model", methods=["POST"])
 def set_model():
@@ -65,6 +72,7 @@ def set_model():
     SELECTED_MODEL_KEY = model_key
     return jsonify({"model_name": model_name}), 200
 
+
 @app.route("/set-caption-prompt", methods=["POST"])
 def set_caption_prompt():
     global caption_prompt
@@ -73,6 +81,7 @@ def set_caption_prompt():
     # Normalize empty prompt to None for clearer downstream handling
     caption_prompt = new_prompt.strip() or None
     return jsonify({"caption_prompt": caption_prompt}), 200
+
 
 @app.route("/caption-images", methods=["POST"])
 def caption_images():
@@ -98,7 +107,7 @@ def caption_images():
         # Process new image
         image = Image.open(f.stream).convert("RGB")
         caption = infer_image_caption(processor, model, device, image, caption_prompt)
-        if(caption is None or len(caption) == 0):
+        if (caption is None or len(caption) == 0):
             caption = "No caption could be generated."
             results.append({"filename": f.filename, "caption": caption, "tags": []})
             continue
@@ -152,18 +161,20 @@ def caption_collective_images():
     rdb.set(cache_key, json.dumps(response), ex=REDIS_CACHE_TTL)
     return jsonify(response)
 
+
 @app.route("/reset-redis", methods=["GET"])
 def reset_redis():
     rdb.flushdb()
     return jsonify({"message": "Redis cache cleared"}), 200
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="BLIP Image Captioning Flask Server")
     parser.add_argument("--blip2", action="store_true", help="Use BLIP2 model (default: BLIP1)")
     parser.add_argument("--gemma", action="store_true", help="Optionally use Gemma for inference")
     parser.add_argument("--intern-vlm", action="store_true", help="Optionally use Intern VLM for inference")
-    parser.add_argument("--caption-prompt", type=str, 
-                        default=None, 
+    parser.add_argument("--caption-prompt", type=str,
+                        default=None,
                         help="Optional caption prompt for inference")
     parser.add_argument("--port", type=int, default=5001, help="Port to run the Flask server on")
     args = parser.parse_args()

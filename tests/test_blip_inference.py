@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import unittest
@@ -7,6 +8,7 @@ from PIL import Image
 import requests
 from blip import initialize_blip_model, initialize_blip2_model
 from inference import infer_image_caption
+
 
 class TestBlipInference(unittest.TestCase):
     def setUp(self):
@@ -33,6 +35,7 @@ class TestBlipInference(unittest.TestCase):
         processor, model, device = initialize_blip2_model()
         caption = infer_image_caption(processor, model, device, self.raw_image)
         self.assertIn("a woman sitting on the beach with a dog", caption)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,11 +1,13 @@
 from typing import List
-import spacy
+
 import nltk
+import spacy
 
 try:
     NLP = spacy.load("en_core_web_sm")
 except OSError:
     from spacy.cli import download
+
     download("en_core_web_sm")
 
 
@@ -25,8 +27,8 @@ def generate_spacy_tags(caption: str) -> List[str]:
     for bg in nltk.bigrams(tokens):
         bigram = "_".join(bg)
         if len(bigram.replace("_", "")) > 2:
-            candidates_tags.append(bigram)            
-    # cleanup and dedupe
+            candidates_tags.append(bigram)
+            # cleanup and dedupe
     seen = set()
     tags = []
     for t in candidates_tags:

@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import unittest
@@ -8,6 +9,7 @@ import requests
 from gemma import initialize_gemma_model
 from intern_vlm import initialize_intern_vlm_model
 from inference import infer_image_caption
+
 
 class TestLLMInference(unittest.TestCase):
     def setUp(self):
@@ -36,6 +38,7 @@ class TestLLMInference(unittest.TestCase):
         processor, model, device = initialize_intern_vlm_model()
         caption = infer_image_caption(processor, model, device, self.raw_image)
         self.assertTrue(caption is not None and len(caption) > 0)
+
 
 if __name__ == "__main__":
     unittest.main()
