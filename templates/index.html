@@ -4,78 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>VLM Image Captioning Service</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-            margin: 20px;
-        }
-
-        header {
-            margin-bottom: 16px;
-        }
-
-        .card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 12px 0;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        img.preview {
-            width: 160px;
-            height: 160px;
-            object-fit: cover;
-            border-radius: 6px;
-            border: 1px solid #eee;
-        }
-
-        .actions {
-            margin: 12px 0;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        button {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            background: #f8f8f8;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 6px;
-        }
-
-        .tag {
-            background: #eef3ff;
-            border: 1px solid #cdd8ff;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-        }
-
-        .error {
-            color: #b00020;
-        }
-
-        .small {
-            color: #666;
-            font-size: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
 <header>
@@ -84,22 +13,33 @@
     <div class="actions">
         <label for="model-select" class="small">Model:</label>
         <select id="model-select">
-            <option value="blip" {% if model_name == 'BlipForConditionalGeneration' %}selected{% endif %}>BLIP</option>
-            <option value="blip2" {% if model_name == 'Blip2ForConditionalGeneration' %}selected{% endif %}>BLIP2</option>
-            <option value="gemma" {% if model_name == 'Gemma3ForConditionalGeneration' %}selected{% endif %}>Gemma</option>
-            <option value="intern_vlm" {% if model_name == 'InternVLForConditionalGeneration' %}selected{% endif %}>Intern VLM</option>
+            <option value="blip">BLIP</option>
+            <option value="blip2">BLIP2</option>
+            <option value="gemma">Gemma</option>
+            <option value="intern_vlm">Intern VLM</option>
         </select>
     </div>
     <div><p class="small">Current Model: <strong id="current-model">{{ model_name }}</strong></p></div>
-    <div class="actions" style="flex-wrap:wrap; align-items:center;">
+
+    <div class="actions">
+        <label for="mode-toggle" class="small">Collective mode</label>
+        <label class="switch">
+            <input type="checkbox" id="mode-toggle"/>
+            <span class="slider"></span>
+        </label>
+        <span class="small" id="mode-hint">(multi-image → one caption)</span>
+        <span class="small" id="mode-warning">Only supported for Gemma and Intern VLM</span>
+    </div>
+
+    <div class="actions wrap">
         <label for="caption-prompt" class="small">Caption Prompt:</label>
-        <textarea id="caption-prompt" placeholder="Enter optional caption prompt" style="padding:4px 8px; min-width:280px; min-height:80px; resize:vertical;">{{ caption_prompt or '' }}</textarea>
+        <textarea id="caption-prompt" placeholder="Enter optional caption prompt">{{ caption_prompt or '' }}</textarea>
         <button id="save-prompt-btn" type="button">Save Prompt</button>
         <span class="small" id="prompt-status"></span>
     </div>
     <p class="small">Current Prompt: <strong id="current-prompt">{{ caption_prompt }}</strong></p>
-    <p class="small">Upload one or more images to generate captions and tags. Results are cached in Redis for faster
-        repeats.</p>
+    <p class="small">Upload one or more images for captions. In collective mode, the server produces one caption for all
+        images.</p>
 </header>
 
 <form id="upload-form">
@@ -111,151 +51,8 @@
 </form>
 
 <div id="previews"></div>
-<div id="results" style="display:none"></div>
+<div id="results"></div>
 
-<script>
-    const form = document.getElementById('upload-form');
-    const fileInput = document.getElementById('file-input');
-    const statusEl = document.getElementById('status');
-    const resultsEl = document.getElementById('results');
-    const previewsEl = document.getElementById('previews');
-    const submitBtn = document.getElementById('submit-btn');
-    const modelSelect = document.getElementById('model-select');
-    const currentModelEl = document.getElementById('current-model');
-    const captionPromptInput = document.getElementById('caption-prompt');
-    const savePromptBtn = document.getElementById('save-prompt-btn');
-    const currentPromptEl = document.getElementById('current-prompt');
-    const promptStatusEl = document.getElementById('prompt-status');
-
-    const resetRedisBtn = document.getElementById('reset-redis-btn');
-    resetRedisBtn.addEventListener('click', async () => {
-        statusEl.textContent = 'Resetting Redis cache...';
-        try {
-            const resp = await fetch('/reset-redis', { method: 'GET' });
-            if (!resp.ok) {
-                throw new Error('Failed to reset Redis cache');
-            }
-            const data = await resp.json();
-            statusEl.textContent = data.message || 'Redis cache reset.';
-        } catch (err) {
-            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
-        }
-    });
-
-    modelSelect.addEventListener('change', async () => {
-        const selectedModel = modelSelect.value;
-        statusEl.textContent = 'Switching model...';
-        try {
-            const resp = await fetch('/set-model', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: selectedModel })
-            });
-            if (!resp.ok) {
-                throw new Error('Failed to switch model');
-            }
-            const data = await resp.json();
-            currentModelEl.textContent = data.model_name || selectedModel;
-            statusEl.textContent = 'Model switched.';
-        } catch (err) {
-            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
-        }
-    });
-
-    savePromptBtn.addEventListener('click', async () => {
-        const promptVal = captionPromptInput.value;
-        promptStatusEl.textContent = 'Saving...';
-        try {
-            const resp = await fetch('/set-caption-prompt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ caption_prompt: promptVal })
-            });
-            if (!resp.ok) {
-                throw new Error('Failed to save caption prompt');
-            }
-            const data = await resp.json();
-            currentPromptEl.textContent = data.caption_prompt || '';
-            promptStatusEl.textContent = 'Saved';
-        } catch (err) {
-            promptStatusEl.innerHTML = `<span class="error">${err.message}</span>`;
-        }
-    });
-
-    function resetUI() {
-        statusEl.textContent = '';
-        resultsEl.innerHTML = '';
-        previewsEl.innerHTML = '';
-    }
-
-    fileInput.addEventListener('change', () => {
-        previewsEl.innerHTML = '';
-        const files = Array.from(fileInput.files || []);
-        files.forEach((file, i) => {
-            const url = URL.createObjectURL(file);
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.dataset.index = String(i);
-            card.innerHTML = `
-          <img class="preview" src="${url}" alt="preview" />
-          <div style="flex:1">
-            <div><strong>${file.name}</strong></div>
-            <div class="small">${(file.size / 1024).toFixed(1)} KB</div>
-            <div class="small" data-role="caption">Caption: (pending...)</div>
-            <div class="tags" data-role="tags"></div>
-          </div>
-        `;
-            previewsEl.appendChild(card);
-        });
-    });
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        resultsEl.innerHTML = '';
-
-        const files = fileInput.files;
-        if (!files || files.length === 0) {
-            statusEl.innerHTML = '<span class="error">Please choose at least one image.</span>';
-            return;
-        }
-
-        const formData = new FormData();
-        for (const f of files) formData.append('images', f);
-
-        submitBtn.disabled = true;
-        statusEl.textContent = 'Uploading and captioning...';
-
-        try {
-            const resp = await fetch('/caption-images', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!resp.ok) {
-                const t = await resp.text();
-                throw new Error(`Server error (${resp.status}): ${t}`);
-            }
-
-            const data = await resp.json();
-            statusEl.textContent = 'Done';
-
-            (data.results || []).forEach((item, i) => {
-                const card = previewsEl.children[i];
-                if (!card) return;
-                const captionEl = card.querySelector('[data-role="caption"]');
-                const tagsEl = card.querySelector('[data-role="tags"]');
-                if (captionEl) captionEl.textContent = `Caption: ${item.caption || ''}`;
-                if (tagsEl) {
-                    tagsEl.innerHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
-                }
-            });
-        } catch (err) {
-            console.error(err);
-            statusEl.innerHTML = `<span class="error">${err.message}</span>`;
-        } finally {
-            submitBtn.disabled = false;
-        }
-    });
-</script>
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>

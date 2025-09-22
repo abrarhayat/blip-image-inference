@@ -10,6 +10,8 @@ Supported models for image captioning:
 - [Gemma (google/gemma-3-4b-it)](https://huggingface.co/google/gemma-3-4b-it)
 - [InternVLM (OpenGVLab/InternVL3-1B-hf)](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
 
+Note: Collective mode (multi-image → one caption) is supported only for Gemma and InternVLM.
+
 You can select which model to use for inference via command-line arguments when starting the server. The API endpoint allows you to upload images and receive captions and tags in response. Redis is used to cache results for faster repeated requests.
 
 ## Recommended Environment Setup
@@ -70,7 +72,7 @@ The Flask server will read the port number from `.env` when starting.
 
 Start the Flask server:
 
-### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5000)
+### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5001)
 
 ```bash
 python app.py
@@ -168,6 +170,35 @@ The API includes a `tags` field in its response for each image. Tags are generat
 - Simple bigrams (two-word combinations)
 
 This helps with downstream tasks such as search, filtering, and categorization.
+
+#### Collective Captioning Endpoint
+
+`POST /caption-collective-images`
+
+Upload multiple images using multipart form data under the key `images`. The server returns a single caption for the entire collection along with `tags` extracted from that caption using spaCy.
+
+- Supported models: Gemma, InternVLM
+- Response:
+```json
+{
+  "collective_caption": "a cozy living room with a gray sofa and plant",
+  "count": 3,
+  "tags": ["living room", "sofa", "plant", "cozy", "gray sofa"]
+}
+```
+
+Example using `curl`:
+```bash
+curl -X POST \
+  -F "images=@img1.jpg" \
+  -F "images=@img2.jpg" \
+  -F "images=@img3.jpg" \
+  http://localhost:5001/caption-collective-images
+```
+
+Notes:
+- Requests are cached in Redis using a combined SHA-256 hash of the uploaded images.
+- If a non-supported model is active, the endpoint returns `400` with an explanatory error.
 
 ---
 

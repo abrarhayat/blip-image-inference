@@ -5,13 +5,13 @@ import hashlib
 from blip import initialize_blip_model, initialize_blip2_model
 from gemma import initialize_gemma_model
 from intern_vlm import initialize_intern_vlm_model
-from inference import infer_image_caption
+from inference import infer_image_caption, infer_collective_caption
 from flask import Flask, json, request, jsonify, render_template
 from PIL import Image
 from spacy_tagging import generate_spacy_tags
 from redis_config import get_redis_client
 from typing import Union
-from transformers import AutoProcessor, BlipForConditionalGeneration, Blip2ForConditionalGeneration, Gemma3ForConditionalGeneration, InternVLForConditionalGeneration
+from transformers import Gemma3Processor, BlipForConditionalGeneration, Blip2ForConditionalGeneration, Gemma3ForConditionalGeneration, InternVLForConditionalGeneration
 
 
 load_dotenv()
@@ -29,7 +29,7 @@ caption_prompt = None
 MODEL_CACHE = {}
 
 # Load BLIP model + processor once (warm start)
-def get_model_and_processor(model_key) -> tuple[AutoProcessor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
+def get_model_and_processor(model_key) -> tuple[Gemma3Processor, Union[BlipForConditionalGeneration, Blip2ForConditionalGeneration,
                                                                          Gemma3ForConditionalGeneration, InternVLForConditionalGeneration], str]:
     model_result = MODEL_CACHE.get(model_key)
     if model_result:
@@ -110,6 +110,47 @@ def caption_images():
         results.append({"filename": f.filename, **result})
 
     return jsonify({"results": results})
+
+
+@app.route("/caption-collective-images", methods=["POST"])
+def caption_collective_images():
+    """Generate a single caption for a collection of images (Gemma / InternVLM only).
+
+    Returns JSON of the form:
+    {"collective_caption": str, "count": int}
+    """
+    global processor, model, device, caption_prompt
+    if not isinstance(model, (Gemma3ForConditionalGeneration, InternVLForConditionalGeneration)):
+        return jsonify({"error": "Collective captioning only supported for Gemma / InternVLM models"}), 400
+
+    if "images" not in request.files:
+        return jsonify({"error": "No images uploaded"}), 400
+
+    files = request.files.getlist("images")
+    if len(files) == 0:
+        return jsonify({"error": "No images uploaded"}), 400
+
+    images = []
+    hashes = []
+    for f in files:
+        file_bytes = f.read()
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+        hashes.append(file_hash)
+        image = Image.open(f.stream).convert("RGB")
+        images.append(image)
+
+    # Optionally cache by a combined hash of all images
+    combined_hash = hashlib.sha256("".join(hashes).encode("utf-8")).hexdigest()
+    cache_key = f"collection:{combined_hash}"
+    cached = rdb.get(cache_key)
+    if cached:
+        return jsonify(json.loads(cached))
+
+    collective_caption = infer_collective_caption(processor, model, device, images, caption_prompt)
+    response = {"collective_caption": collective_caption, "count": len(images),
+                "tags": generate_spacy_tags(collective_caption)}
+    rdb.set(cache_key, json.dumps(response), ex=REDIS_CACHE_TTL)
+    return jsonify(response)
 
 @app.route("/reset-redis", methods=["GET"])
 def reset_redis():

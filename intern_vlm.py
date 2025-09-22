@@ -1,10 +1,10 @@
 import torch
-from transformers import AutoProcessor, InternVLForConditionalGeneration
+from transformers import AutoProcessor, InternVLProcessor, InternVLForConditionalGeneration
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 
-def initialize_intern_vlm_model() -> tuple[AutoProcessor, InternVLForConditionalGeneration, str]:
+def initialize_intern_vlm_model() -> tuple[InternVLProcessor, InternVLForConditionalGeneration, str]:
     """Initialize the InternVLM model and processor."""
     processor = AutoProcessor.from_pretrained("OpenGVLab/InternVL3-1B-hf")
     model = InternVLForConditionalGeneration.from_pretrained("OpenGVLab/InternVL3-1B-hf").to(DEVICE)

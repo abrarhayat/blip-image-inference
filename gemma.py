@@ -1,10 +1,10 @@
 import time
 import torch
-from transformers import AutoProcessor, Gemma3ForConditionalGeneration
+from transformers import AutoProcessor, Gemma3Processor, Gemma3ForConditionalGeneration
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
-def initialize_gemma_model() -> tuple[AutoProcessor, Gemma3ForConditionalGeneration, str]:
+def initialize_gemma_model() -> tuple[Gemma3Processor, Gemma3ForConditionalGeneration, str]:
     """Initialize the Gemma model and processor."""
     model = Gemma3ForConditionalGeneration.from_pretrained(
     "google/gemma-3-4b-it",
