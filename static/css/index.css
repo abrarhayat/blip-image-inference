@@ -151,3 +151,12 @@ body.collective-on [data-role="tags"] {
 #results {
     display: none;
 }
+
+
+/* Ensure the flag prompt textarea is visibly sized like the caption prompt */
+#flag-prompt {
+    padding: 4px 8px;
+    min-width: 280px;
+    min-height: 80px;
+    resize: vertical;
+}

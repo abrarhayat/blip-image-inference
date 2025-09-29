@@ -6,6 +6,8 @@ from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Proce
 from inference import infer_image_caption
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+DEFAULT_BLIP_PROMPT = "a photo of"
+DEFAUALT_BLIP2_PROMPT = "Question: Describe the image as someone who is posting this on social media. Answer:"
 print(f"Using device: {DEVICE}")
 
 
@@ -30,9 +32,8 @@ def run_demo_inference():
     IMAGE_URL = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg'
     raw_image = Image.open(requests.get(IMAGE_URL, stream=True, timeout=5).raw).convert('RGB')
     # conditional image captioning
-    CAPTIONING_TEXT = "a photo of"
-    print("Captioning with prompt: '", CAPTIONING_TEXT, "'")
-    print(infer_image_caption(processor, model, DEVICE, raw_image, CAPTIONING_TEXT))
+    print("Captioning with prompt: '", DEFAULT_BLIP_PROMPT, "'")
+    print(infer_image_caption(processor, model, DEVICE, raw_image, DEFAULT_BLIP_PROMPT))
     # >>> a photo of a woman sitting on the beach with her dog
 
     # unconditional image captioning
@@ -49,9 +50,8 @@ def run_demo_inference_blip2():
     IMAGE_URL = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg'
     raw_image = Image.open(requests.get(IMAGE_URL, stream=True, timeout=5).raw).convert('RGB')
     # conditional image captioning
-    CAPTIONING_TEXT = "Question: Describe the image as someone who is posting this on social media. Answer:"
-    print("Captioning with prompt: '", CAPTIONING_TEXT, "'")
-    print(infer_image_caption(processor, model, DEVICE, raw_image, CAPTIONING_TEXT))
+    print("Captioning with prompt: '", DEFAUALT_BLIP2_PROMPT, "'")
+    print(infer_image_caption(processor, model, DEVICE, raw_image, DEFAUALT_BLIP2_PROMPT))
     # >>> A woman is sitting on the beach with her dog and is holding a cell phone in her hand.
 
     # unconditional image captioning

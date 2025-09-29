@@ -42,6 +42,12 @@
                 if (!resp.ok) throw new Error('Failed to switch model');
                 const data = await resp.json();
                 currentModelEl.textContent = data.model_name || selectedModel;
+                // Update the current flag prompt if provided by the server
+                const flagEl = document.getElementById('current-flag-prompt');
+                if (flagEl) flagEl.textContent = data.flag_caption_prompt || '';
+                // Also update the textarea value so users can see/edit it immediately
+                const flagInput = document.getElementById('flag-prompt');
+                if (flagInput) flagInput.value = data.flag_caption_prompt || '';
                 statusEl.textContent = 'Model switched.';
             } catch (err) {
                 statusEl.innerHTML = `<span class="error">${err.message}</span>`;
@@ -65,7 +71,30 @@
                 currentPromptEl.textContent = data.caption_prompt || '';
                 promptStatusEl.textContent = 'Saved';
             } catch (err) {
-                promptStatusEl.innerHTML = `<span class="error">${err.message}</span>`;
+                promptStatusEl.innerHTML = `<span class='error'>${err.message}</span>`;
+            }
+        });
+    }
+
+    function attachSaveFlagPrompt(saveBtnEl, inputEl, currentFlagPromptEl, promptStatusEl) {
+        if (!saveBtnEl || !inputEl || !currentFlagPromptEl || !promptStatusEl) return;
+        saveBtnEl.addEventListener('click', async () => {
+            const promptVal = inputEl.value;
+            promptStatusEl.textContent = 'Saving...';
+            try {
+                const resp = await fetch('/set-flag-prompt', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({flag_caption_prompt: promptVal})
+                });
+                if (!resp.ok) throw new Error('Failed to save flag prompt');
+                const data = await resp.json();
+                currentFlagPromptEl.textContent = data.flag_caption_prompt || '';
+                // Reflect normalized value back into the textarea
+                inputEl.value = data.flag_caption_prompt || '';
+                promptStatusEl.textContent = 'Saved';
+            } catch (err) {
+                promptStatusEl.innerHTML = `<span class='error'>${err.message}</span>`;
             }
         });
     }
@@ -76,6 +105,7 @@
         attachResetRedis,
         attachModelSwitcher,
         attachSavePrompt,
+        attachSaveFlagPrompt,
     };
 })();
 
@@ -94,6 +124,10 @@
         const savePromptBtn = document.getElementById('save-prompt-btn');
         const currentPromptEl = document.getElementById('current-prompt');
         const promptStatusEl = document.getElementById('prompt-status');
+        const flagPromptInput = document.getElementById('flag-prompt');
+        const saveFlagPromptBtn = document.getElementById('save-flag-prompt-btn');
+        const currentFlagPromptEl = document.getElementById('current-flag-prompt');
+        const flagPromptStatusEl = document.getElementById('flag-prompt-status');
         const modeToggle = document.getElementById('mode-toggle');
         const modeWarning = document.getElementById('mode-warning');
 
@@ -105,9 +139,10 @@
             attachModelSwitcher(modelSelect, currentModelEl, statusEl);
         }
 
-        const {attachSavePrompt, modelNameToKey} = window.CommonUI || {};
+        const {attachSavePrompt, attachSaveFlagPrompt, modelNameToKey} = window.CommonUI || {};
         if (window.CommonUI) {
             attachSavePrompt(savePromptBtn, captionPromptInput, currentPromptEl, promptStatusEl);
+            attachSaveFlagPrompt(saveFlagPromptBtn, flagPromptInput, currentFlagPromptEl, flagPromptStatusEl);
         }
 
         function isCollectiveSupported() {
@@ -180,14 +215,15 @@
                 card.className = 'card';
                 card.dataset.index = String(i);
                 card.innerHTML = `
-          <img class="preview" src="${url}" alt="preview" />
-          <div style="flex:1">
-            <div><strong>${file.name}</strong></div>
-            <div class="small">${(file.size / 1024).toFixed(1)} KB</div>
-            <div class="small" data-role="caption">Caption: (pending...)</div>
-            <div class="tags" data-role="tags"></div>
-          </div>
-        `;
+                        <img class="preview" src="${url}" alt="preview" />
+                        <div style="flex:1">
+                            <div><strong>${file.name}</strong></div>
+                            <div class="small" data-role="flag"></div>
+                            <div class="small">${(file.size / 1024).toFixed(1)} KB</div>
+                            <div class="small" data-role="caption">Caption: (pending...)</div>
+                            <div class="tags" data-role="tags"></div>
+                        </div>
+                    `;
                 previewsEl.appendChild(card);
             });
             // Clear any previous collective result
@@ -222,7 +258,12 @@
                     const count = data.count || (files ? files.length : 0);
                     const tags = Array.isArray(data.tags) ? data.tags : [];
                     const tagsHtml = tags.length ? `<div class="tags" style="margin-top:6px;">${tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : '';
-                    resultsEl.innerHTML = `<div><strong>Collection Caption</strong> (${count} image${count === 1 ? '' : 's'}):</div><div style="margin-top:6px;">${caption}</div>${tagsHtml}`;
+                    if (data.flagged === true) {
+                        resultsEl.innerHTML = `<div style="margin-top:10px; color:green; font-weight:bold;">Flag: True</div><br/>`;
+                    } else if (data.flagged === false) {
+                        resultsEl.innerHTML = `<div style="margin-top:10px; color:red; font-weight:bold;">Flag: False</div><br/>`;
+                    }
+                    resultsEl.innerHTML += `<div><strong>Collective Caption</strong> (${count} image${count === 1 ? '' : 's'}):</div><div style="margin-top:6px;">${caption}</div>${tagsHtml}`;
                     resultsEl.style.display = 'block';
                     statusEl.textContent = 'Done';
                 } else {
@@ -238,9 +279,19 @@
                         if (!card) return;
                         const captionEl = card.querySelector('[data-role="caption"]');
                         const tagsEl = card.querySelector('[data-role="tags"]');
+                        const flagEl = card.querySelector('[data-role="flag"]');
                         if (captionEl) captionEl.textContent = `Caption: ${item.caption || ''}`;
                         if (tagsEl) {
                             tagsEl.innerHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+                        }
+                        if (flagEl) {
+                            if (item.flagged === true) {
+                                flagEl.innerHTML = '<span style="color:#228B22;font-weight:bold;">Flag: True</span>';
+                            } else if (item.flagged === false) {
+                                flagEl.innerHTML = '<span style="color:#b00020;font-weight:bold;">Flag: False</span>';
+                            } else {
+                                flagEl.innerHTML = '';
+                            }
                         }
                     });
                 }

@@ -10,8 +10,6 @@ Supported models for image captioning:
 - [Gemma (google/gemma-3-4b-it)](https://huggingface.co/google/gemma-3-4b-it)
 - [InternVLM (OpenGVLab/InternVL3-1B-hf)](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
 
-Note: Collective mode (multi-image → one caption) is supported only for Gemma and InternVLM.
-
 You can select which model to use for inference via command-line arguments when starting the server. The API endpoint allows you to upload images and receive captions and tags in response. Redis is used to cache results for faster repeated requests.
 
 ## Recommended Environment Setup
@@ -72,7 +70,7 @@ The Flask server will read the port number from `.env` when starting.
 
 Start the Flask server:
 
-### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5001)
+### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5000)
 
 ```bash
 python app.py
@@ -97,7 +95,8 @@ python app.py --intern-vlm --caption-prompt "Please describe the image explicitl
 - `--blip2`: Use the BLIP2 model (`Salesforce/blip2-opt-2.7b`). 
 - `--gemma`: Use the Gemma model (`google/gemma-3-4b-it`).
 - `--intern-vlm`: Use the InternVLM model (`OpenGVLab/InternVL3-1B-hf`).
-- `--caption-prompt`: Optional prompt to guide caption generation. If omitted, the model will generate an unconditional caption.
+- `--caption-prompt`: Optional prompt to guide caption generation.
+- `--flag-caption-prompt`: Optional prompt to guide flag generation.
 - `--port`: Specify the port for the Flask server (default is 5001, or value from `.env`). Example: `--port 8080`
 
 
@@ -272,7 +271,89 @@ Notes:
 - An empty or whitespace-only string is treated as `null` (no prompt) for clearer downstream logic.
 - The prompt applies to all subsequent `/caption-images` requests until changed again.
 
+### Flag Prompt Endpoint
+
+`POST /set-flag-prompt`
+
+Set or update the flag prompt used to guide the VLM when emitting the small JSON flag in responses. If not set (or cleared), the server will use a model-specific default where supported (Gemma, InternVLM). For BLIP/BLIP2 this prompt is not used.
+
+Send a JSON body with the key `flag_caption_prompt`:
+
+Example request:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"flag_caption_prompt": "Return JSON {\"flag\": true|false} indicating if any image has an animal on it."}' \
+     http://localhost:5001/set-flag-prompt
+```
+
+Example response:
+```json
+{
+  "flag_caption_prompt": "Return JSON {\"flag\": true|false} indicating if any image has an animal on it."
+}
+```
+
+Clearing / removing the flag prompt:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"flag_caption_prompt": ""}' \
+     http://localhost:5001/set-flag-prompt
+```
+Response when cleared (normalized to null/None internally):
+```json
+{
+  "flag_caption_prompt": null
+}
+```
+
+Notes:
+- Only used by Gemma and InternVLM models; other models ignore it.
+- The current flag prompt is displayed on the test page and updates immediately after saving.
+- An empty or whitespace-only string is treated as `null` (no prompt).
+- The prompt applies to subsequent captioning requests (both single and collective) until changed again.
+
 ---
+
+## JSON Flagging (Sample) from the VLM
+
+This project includes an example of using a Vision-Language Model (VLM) to emit a tiny JSON "flag" about the uploaded image(s). The server parses that JSON and exposes it as a simple boolean field in the API responses.
+
+Key points:
+- Supported with Gemma and InternVLM models. For other models, treat this as a sample pattern you can adapt. 
+- The VLM is prompted to return a strict JSON object with a single boolean field named `flag`. The server parses that and returns a boolean `flagged` field in the API response.
+- This is intended as a sample. The "flag" could be anything your use case needs (nsfw, contains_faces, low_quality, duplicate, brand_logo, etc.). If you change the JSON schema or key, update the parsing logic in `inference.extract_flag_json()` accordingly.
+- The prompt requests strict JSON with no extra text; the parser attempts to handle common cases like ```json code fences, but strict JSON is easiest.
+
+Example response for `POST /caption-images`:
+
+```json
+{
+  "results": [
+    {
+      "filename": "your_image.jpg",
+      "caption": "a woman sitting on the beach with her dog",
+      "tags": ["woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog"],
+      "flagged": true
+    }
+  ]
+}
+```
+
+Also returned by the collective endpoint (`POST /caption-collective-images`) when using Gemma/InternVLM:
+
+```json
+{
+  "collective_caption": "friends hiking along a ridge at sunset",
+  "count": 3,
+  "tags": ["friends", "hiking", "ridge", "sunset"],
+  "flagged": false
+}
+```
+
+Customization notes (sample-only):
+- You can repurpose the idea to any boolean signal you want the VLM to infer (e.g., `{"nsfw": true}` or `{"downloaded_from_internet": false}`). If you do, adjust `inference.extract_flag_json()` so it reads your new key instead of `flag`.
+- The current sample prompt asks whether any uploaded image might have been downloaded from the internet and expects `{ "flag": true|false }`.
+
 
 ### Redis Reset Endpoint
 

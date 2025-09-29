@@ -2,6 +2,8 @@ import torch
 from transformers import AutoProcessor, InternVLProcessor, InternVLForConditionalGeneration
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+DEFAULT_INTERN_VLM_PROMPT = "You are a helpful assistant who generates captions for images. You keep the caption concise within 25 words and return a single caption without any additional text."
+DEFAULT_INTERN_VLM_FLAG_PROMPT = "You are a helpful assistant who generates json objects from images. You respond with a single JSON object with a single key 'flag' and value 'true' or 'false' based on any of the images have any animals on them. DO NOT include any formatting, additional text, or explanation. Only respond with the JSON object."
 
 
 def initialize_intern_vlm_model() -> tuple[InternVLProcessor, InternVLForConditionalGeneration, str]:
@@ -22,7 +24,7 @@ def run_demo_intern_vlm_inference():
                 {"type": "image",
                  "url": "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/pipeline-cat-chonk.jpeg"},
                 {"type": "text",
-                 "text": "Generate a caption for this image. Keep the caption concise within 10 words. Return a single caption without any additional text."}
+                 "text": "Generate a caption for this image. Keep the caption concise within 25 words. Return a single caption without any additional text."}
             ]
         },
     ]
