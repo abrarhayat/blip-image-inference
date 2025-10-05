@@ -3,7 +3,7 @@ import torch
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
 
-from inference import infer_image_caption
+from app.inference.captioning import infer_image_caption
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 DEFAULT_BLIP_PROMPT = "a photo of"

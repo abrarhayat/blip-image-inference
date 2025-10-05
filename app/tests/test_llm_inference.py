@@ -1,14 +1,11 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import unittest
-from PIL import Image
+
 import requests
-from gemma import initialize_gemma_model
-from intern_vlm import initialize_intern_vlm_model
-from inference import infer_image_caption
+from PIL import Image
+
+from app.inference.captioning import infer_image_caption
+from app.models.gemma import initialize_gemma_model
+from app.models.intern_vlm import initialize_intern_vlm_model
 
 
 class TestLLMInference(unittest.TestCase):

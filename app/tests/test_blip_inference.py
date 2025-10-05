@@ -1,13 +1,10 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import unittest
-from PIL import Image
+
 import requests
-from blip import initialize_blip_model, initialize_blip2_model
-from inference import infer_image_caption
+from PIL import Image
+
+from app.inference.captioning import infer_image_caption
+from app.models.blip import initialize_blip_model, initialize_blip2_model
 
 
 class TestBlipInference(unittest.TestCase):

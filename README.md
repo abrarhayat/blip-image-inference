@@ -1,422 +1,162 @@
-# Image Captioning Flask Server (BLIP, BLIP2, Gemma, InternVLM)
+# Image Captioning API (FastAPI: BLIP, BLIP2, Gemma 3, InternVLM)
 
+A production‑like FastAPI service for automatic image captioning using multiple vision‑language models, with Redis caching, a minimal browser test page, and production run instructions.
 
-This project provides a Flask server for automatic image captioning using multiple state-of-the-art models from Hugging Face Transformers, with Redis caching for efficient repeated inference.
+- Framework: FastAPI (auto‑docs at /docs)
+- Python: 3.11 (recommended and assumed)
+- Models: BLIP, BLIP2, Gemma 3, InternVLM (select per request via ?model=)
+- Caching: Redis with TTL and namespaced keys
+- Admin: cache reset route protected by API key (disabled in DEBUG)
 
-Supported models for image captioning:
-
+## Supported models
 - [BLIP (Salesforce/blip-image-captioning-base)](https://huggingface.co/Salesforce/blip-image-captioning-base)
 - [BLIP2 (Salesforce/blip2-opt-2.7b)](https://huggingface.co/Salesforce/blip2-opt-2.7b)
-- [Gemma (google/gemma-3-4b-it)](https://huggingface.co/google/gemma-3-4b-it)
+- [Gemma 3 (google/gemma-3-4b-it)](https://huggingface.co/google/gemma-3-4b-it)
 - [InternVLM (OpenGVLab/InternVL3-1B-hf)](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
 
-You can select which model to use for inference via command-line arguments when starting the server. The API endpoint allows you to upload images and receive captions and tags in response. Redis is used to cache results for faster repeated requests.
+Model is selected per request using the query parameter `?model=blip|blip2|gemma|intern_vlm`.
 
-## Recommended Environment Setup
+## Requirements
+- Python 3.11
+- Redis 7.x (local or container)
 
-It is recommended to use a virtual Python environment to avoid dependency conflicts. You can create one using conda:
-
+## Quick start (local dev)
+1) Create and activate a Conda environment (Python 3.11)
 ```bash
-conda create --name profile_name python=3.9
-conda activate profile_name
+conda create -n vlm-api python=3.11 -y
+conda activate vlm-api
 ```
 
-## Setup
-
-Install dependencies (including Redis and dotenv):
-
+2) Install dependencies
 ```bash
+pip install -U pip
 pip install -r requirements.txt
 ```
 
-If you use a custom requirements file, ensure it includes:
-
-- flask
-- pillow
-- transformers
-- torch
-- torchvision
-- redis
-- python-dotenv
-
-## Running Redis with Docker
-
-You can quickly set up a Redis server using Docker:
-
+3) Start Redis (Docker example)
 ```bash
-docker pull redis:latest
-docker run -d --name redis-server -p 6379:6379 redis:latest
+docker run -d --name redis -p 6379:6379 redis:7-alpine
 ```
 
-This will start a Redis server accessible on port 6379. Make sure your `.env` and application configuration match these settings.
-
-## Environment Variables
-
-Configuration values such as the server port are managed using a `.env` file. An example file `.env.example` is provided:
-
-```ini
-PORT=5001
-```
-
-Copy `.env.example` to `.env` and adjust values as needed:
-
+4) Configure environment
 ```bash
 cp .env.example .env
+# edit .env as needed (API_KEY, Redis host, etc.)
 ```
 
-The Flask server will read the port number from `.env` when starting.
-
-## Usage
-
-Start the Flask server:
-
-### Run with default settings (BLIP model, no caption prompt, and default port from .env or fallback to 5000)
-
+5) Run the API (development)
 ```bash
-python app.py
+uvicorn --env-file .env app.main:app --reload --port 8000
 ```
 
+6) Open the test page and docs
+- Test page (upload images): http://localhost:8000/
+- API docs (Swagger UI): http://localhost:8000/docs
+- Health check: http://localhost:8000/healthz
+- Metrics (Prometheus): http://localhost:8000/metrics
 
-### Run with options (Language Model, Optional Caption Prompt and server port)
+## Environment variables
+See `.env.example` for all options. Common values:
 
+- ENV=development|production|test
+- DEBUG=true|false
+- PORT=8000
+- API_KEY=change-me                 # required for /api/admin/* when DEBUG=false
+- REDIS_HOST=localhost
+- REDIS_PORT=6379
+- REDIS_DB=0
+- MODEL_CAPACITY=1                  # max distinct models kept in memory
+- CACHE_TTL_SECONDS=86400           # Redis TTL for cache entries
 
-If ***no model argument is provided***, the server will use the ***base BLIP model*** by default.
+## Endpoints
 
-You can choose which model to use and optionally provide a caption prompt via command-line arguments when starting the Flask server:
-
-```bash
-python app.py --blip2 --caption-prompt "Question: Describe the image as someone who is posting this on social media. Answer:"
-python app.py --gemma --caption-prompt "What animal is on the candy."
-python app.py --intern-vlm --caption-prompt "Please describe the image explicitly."
-```
-
-**Arguments:**
-
-- `--blip2`: Use the BLIP2 model (`Salesforce/blip2-opt-2.7b`). 
-- `--gemma`: Use the Gemma model (`google/gemma-3-4b-it`).
-- `--intern-vlm`: Use the InternVLM model (`OpenGVLab/InternVL3-1B-hf`).
-- `--caption-prompt`: Optional prompt to guide caption generation.
-- `--flag-caption-prompt`: Optional prompt to guide flag generation.
-- `--port`: Specify the port for the Flask server (default is 5001, or value from `.env`). Example: `--port 8080`
-
-
-## Sample Caption Prompts
-
-**BLIP1 (Salesforce/blip-image-captioning-base):**
-
-- "a photo of"
-
-**BLIP2 (Salesforce/blip2-opt-2.7b):**
-
-- "Question: Describe the image as someone who is posting this on social media. Answer:"
-
-**Gemma (google/gemma-3-4b-it):**
-
-- "What animal is on the candy."
-
-**InternVLM (OpenGVLab/InternVL3-1B-hf):**
-
-- "Please describe the image explicitly."
-
-
-<a id="model-docs"></a>
-### Model Documentation & Best Practices
-
-- [BLIP1 Documentation](https://huggingface.co/Salesforce/blip-image-captioning-base)
-- [BLIP2 Documentation](https://huggingface.co/Salesforce/blip2-opt-2.7b)
-- [Gemma Documentation](https://huggingface.co/google/gemma-3-4b-it)
-- [InternVLM Documentation](https://huggingface.co/OpenGVLab/InternVL3-1B-hf)
-
-Refer to the Hugging Face model cards above for more prompt examples and best practices for each model.
-
-Redis must be running and accessible at the host/port specified in your `.env` file.
-
-### API Endpoint
-
-`POST /caption-images`
-
-
-Upload one or more images using multipart form data under the key `images`. The server will return captions and automatically generated tags for each image. Tags are extracted from the caption using spaCy NLP and NLTK bigrams, including noun phrases, nouns, adjectives, and common bigrams.
-
-Example response:
-
-```json
-{
-	"results": [
-		{
-			"filename": "your_image.jpg",
-			"caption": "a woman sitting on the beach with her dog",
-			"tags": [
-				"woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog"
-			]
-		}
-	]
-}
-```
-
-Example using `curl`:
-
-```bash
-curl -X POST -F "images=@your_image.jpg" http://localhost:5001/caption-images
-```
-
-#### Tagging Feature
-
-The API includes a `tags` field in its response for each image. Tags are generated from the caption using spaCy and NLTK:
-
-- Noun phrases (noun_chunks)
-- Nouns, proper nouns, and adjectives
-- Simple bigrams (two-word combinations)
-
-This helps with downstream tasks such as search, filtering, and categorization.
-
-#### Collective Captioning Endpoint
-
-`POST /caption-collective-images`
-
-Upload multiple images using multipart form data under the key `images`. The server returns a single caption for the entire collection along with `tags` extracted from that caption using spaCy.
-
-- Supported models: Gemma, InternVLM
+### POST /api/caption-images
+- Multipart form: `images` (one or more files)
+- Query params:
+  - `model` = `blip|blip2|gemma|intern_vlm` (default `blip`)
+  - `caption_prompt` (optional)
+  - `flag_caption_prompt` (optional)
+- Accepts: image/jpeg, image/png, image/webp
 - Response:
 ```json
 {
-  "collective_caption": "a cozy living room with a gray sofa and plant",
-  "count": 3,
-  "tags": ["living room", "sofa", "plant", "cozy", "gray sofa"]
-}
-```
-
-Example using `curl`:
-```bash
-curl -X POST \
-  -F "images=@img1.jpg" \
-  -F "images=@img2.jpg" \
-  -F "images=@img3.jpg" \
-  http://localhost:5001/caption-collective-images
-```
-
-Notes:
-- Requests are cached in Redis using a combined SHA-256 hash of the uploaded images.
-- If a non-supported model is active, the endpoint returns `400` with an explanatory error.
-
----
-
-### Model Selection Endpoint
-
-`POST /set-model`
-
-Change the currently active model for image captioning while the server is running. Send a JSON payload with the desired model key:
-
-Example request:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -d '{"model": "blip2"}' \
-     http://localhost:5001/set-model
-```
-
-Valid model keys:
-- `blip` (BLIP1)
-- `blip2` (BLIP2)
-- `gemma` (Gemma)
-- `intern_vlm` (InternVLM)
-
-Example response:
-```json
-{
-  "model_name": "Blip2ForConditionalGeneration"
-}
-```
-
-This endpoint allows you to switch models dynamically from the web UI or via API calls. All subsequent caption requests will use the selected model until changed again.
-
----
-
-### Caption Prompt Endpoint
-
-`POST /set-caption-prompt`
-
-Set or update the caption prompt used to guide caption generation. The prompt is optional; if not set (or cleared) the models will produce an unconditional caption. See the model-specific guidance in the [Model Documentation & Best Practices](#model-docs) section.
-
-Send a JSON body with the key `caption_prompt`:
-
-Example request:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-		 -d '{"caption_prompt": "Describe the scene focusing on emotions."}' \
-		 http://localhost:5001/set-caption-prompt
-```
-
-Example response:
-```json
-{
-	"caption_prompt": "Describe the scene focusing on emotions."
-}
-```
-
-Clearing / removing the prompt:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-		 -d '{"caption_prompt": ""}' \
-		 http://localhost:5001/set-caption-prompt
-```
-Response when cleared (normalized to null/None internally):
-```json
-{
-	"caption_prompt": null
-}
-```
-
-Notes:
-- The current prompt is displayed on the test page and updates immediately after saving.
-- An empty or whitespace-only string is treated as `null` (no prompt) for clearer downstream logic.
-- The prompt applies to all subsequent `/caption-images` requests until changed again.
-
-### Flag Prompt Endpoint
-
-`POST /set-flag-prompt`
-
-Set or update the flag prompt used to guide the VLM when emitting the small JSON flag in responses. If not set (or cleared), the server will use a model-specific default where supported (Gemma, InternVLM). For BLIP/BLIP2 this prompt is not used.
-
-Send a JSON body with the key `flag_caption_prompt`:
-
-Example request:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -d '{"flag_caption_prompt": "Return JSON {\"flag\": true|false} indicating if any image has an animal on it."}' \
-     http://localhost:5001/set-flag-prompt
-```
-
-Example response:
-```json
-{
-  "flag_caption_prompt": "Return JSON {\"flag\": true|false} indicating if any image has an animal on it."
-}
-```
-
-Clearing / removing the flag prompt:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -d '{"flag_caption_prompt": ""}' \
-     http://localhost:5001/set-flag-prompt
-```
-Response when cleared (normalized to null/None internally):
-```json
-{
-  "flag_caption_prompt": null
-}
-```
-
-Notes:
-- Only used by Gemma and InternVLM models; other models ignore it.
-- The current flag prompt is displayed on the test page and updates immediately after saving.
-- An empty or whitespace-only string is treated as `null` (no prompt).
-- The prompt applies to subsequent captioning requests (both single and collective) until changed again.
-
----
-
-## JSON Flagging (Sample) from the VLM
-
-This project includes an example of using a Vision-Language Model (VLM) to emit a tiny JSON "flag" about the uploaded image(s). The server parses that JSON and exposes it as a simple boolean field in the API responses.
-
-Key points:
-- Supported with Gemma and InternVLM models. For other models, treat this as a sample pattern you can adapt. 
-- The VLM is prompted to return a strict JSON object with a single boolean field named `flag`. The server parses that and returns a boolean `flagged` field in the API response.
-- This is intended as a sample. The "flag" could be anything your use case needs (nsfw, contains_faces, low_quality, duplicate, brand_logo, etc.). If you change the JSON schema or key, update the parsing logic in `inference.extract_flag_json()` accordingly.
-- The prompt requests strict JSON with no extra text; the parser attempts to handle common cases like ```json code fences, but strict JSON is easiest.
-
-Example response for `POST /caption-images`:
-
-```json
-{
   "results": [
-    {
-      "filename": "your_image.jpg",
-      "caption": "a woman sitting on the beach with her dog",
-      "tags": ["woman", "beach", "dog", "sitting", "woman_sitting", "beach_dog"],
-      "flagged": true
-    }
+    { "filename": "img.jpg", "caption": "...", "tags": ["..."], "flagged": false, "cache": false }
   ]
 }
 ```
+- Example:
+```bash
+curl -X POST \
+  -F "images=@path/to/image.jpg" \
+  "http://localhost:8000/api/caption-images?model=blip&caption_prompt=a%20photo%20of"
+```
 
-Also returned by the collective endpoint (`POST /caption-collective-images`) when using Gemma/InternVLM:
-
+### POST /api/caption-collective-images
+- Multipart form: `images` (multiple files)
+- Only supported for `gemma` or `intern_vlm`
+- Query params: same as above
+- Response:
 ```json
 {
-  "collective_caption": "friends hiking along a ridge at sunset",
+  "collective_caption": "...",
   "count": 3,
-  "tags": ["friends", "hiking", "ridge", "sunset"],
+  "tags": ["..."],
   "flagged": false
 }
 ```
-
-Customization notes (sample-only):
-- You can repurpose the idea to any boolean signal you want the VLM to infer (e.g., `{"nsfw": true}` or `{"downloaded_from_internet": false}`). If you do, adjust `inference.extract_flag_json()` so it reads your new key instead of `flag`.
-- The current sample prompt asks whether any uploaded image might have been downloaded from the internet and expects `{ "flag": true|false }`.
-
-
-### Redis Reset Endpoint
-
-`GET /reset-redis`
-
-Clears all cached results from Redis. Useful for testing or development when you want to reset the cache.
-
-Example using `curl`:
-
+- Example:
 ```bash
-curl -X GET http://localhost:5001/reset-redis
+curl -X POST \
+  -F "images=@img1.jpg" -F "images=@img2.jpg" \
+  "http://localhost:8000/api/caption-collective-images?model=gemma"
 ```
 
-Example response:
-
-```json
-{
-	"message": "Redis cache cleared"
-}
-```
-
-### Redis Configuration
-
-Redis connection details are read from your `.env` file. Example variables:
-
-```
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
-```
-
-See `.env.example` for a template.
-
-
----
-
-### Optional Browser Test Page (index.html)
-
-An optional browser-based test page is included to help you try the API without writing a client. It is served by the Flask app at the root path `/` and lives at `templates/index.html`.
-
-How to use:
-1. Ensure Redis is running and the app is started: `python app.py`.
-2. Open your browser to `http://localhost:5001/` (or the port set in your `.env`).
-3. Use the file picker to select one or more images and click "Caption Images".
-4. For each image, you will see:
-   - A preview thumbnail.
-   - The generated caption when ready.
-   - Auto-generated tags shown as pills.
-
-Notes:
-- The page sends `multipart/form-data` to `POST /caption-images` with files under the `images` field.
-- Results are cached in Redis for 24 hours based on a SHA-256 hash of the image bytes. Re-uploading the same file will return cached results instantly.
-- You can clear the cache via `GET /reset-redis` (see section above).
-- This page is intended for local development and demos. If deploying publicly, harden or remove the route and template as needed.
-
-## Unit Tests
-
-Unit tests for inference are provided in `tests/` directory. These tests verify that both models generate expected captions for a sample image, using both conditional and unconditional prompts.
-
-To run the tests:
-
+### POST /api/admin/reset-cache
+- Header: `X-API-Key: <your-key>` (not required when `DEBUG=true`)
+- Effect: Flushes the Redis database used by this service.
+- Example:
 ```bash
-python -m unittest discover tests
+curl -X POST -H "X-API-Key: change-me" http://localhost:8000/api/admin/reset-cache
 ```
 
-This will execute all tests in the `tests/` directory and report any failures or errors. Make sure you have all dependencies installed and a working internet connection to download the sample image.
+## Caching details
+- Single image cache key: `v1:img:{sha256(image_bytes)}`
+- Collective cache key: `v1:collection:{sha256(concatenated_hashes)}`
+- TTL: `CACHE_TTL_SECONDS` (default 86400 seconds)
+- Redis failures are tolerated: requests still proceed without cache.
+
+## Test page
+- Served at `/` via Jinja2 template `app/templates/index.html` with assets under `app/static/`
+- Lets you pick the model, optional prompts, and upload one or more images
+- Calls the endpoints above and renders the results
+
+## Running in production (Gunicorn + Uvicorn workers)
+Use the provided config in `scripts/gunicorn_conf.py`.
+```bash
+ENV=production API_KEY=change-me \
+  gunicorn -c scripts/gunicorn_conf.py app.main:app
+```
+Defaults bind to `0.0.0.0:8000`. GPU workloads typically run 1 worker per GPU.
+
+## Docker (CPU baseline)
+Build and run:
+```bash
+docker build -t vlm-api:latest .
+docker run --rm -p 8000:8000 --env-file .env vlm-api:latest
+```
+For GPU, base on an NVIDIA CUDA runtime image and install matching Torch CUDA wheels; run with `--gpus all`.
+
+## Notes and tips
+- First request to a given model will download weights; start with `?model=blip` for a quick first run.
+- Per‑request model selection avoids global mutable state.
+- Model registry capacity (`MODEL_CAPACITY`) limits the number of simultaneously loaded models to avoid OOM.
+- Logging uses Python stdlib `logging.basicConfig(...)` initialized in `app/main.py`.
+
+## Development and tests
+- Linting/formatting and type checking are optional; focus is on working API.
+- Basic tests live under `tests/`.
+- Run tests (pytest):
+```bash
+pytest -q
+```

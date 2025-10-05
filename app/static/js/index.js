@@ -18,7 +18,9 @@
         resetBtnEl.addEventListener('click', async () => {
             statusEl.textContent = 'Resetting Redis cache...';
             try {
-                const resp = await fetch('/reset-redis', {method: 'GET'});
+                const headers = {};
+                if (window.API_KEY) headers['X-API-Key'] = window.API_KEY;
+                const resp = await fetch('/api/admin/reset-cache', {method: 'POST', headers});
                 if (!resp.ok) throw new Error('Failed to reset Redis cache');
                 const data = await resp.json();
                 statusEl.textContent = data.message || 'Redis cache reset.';
@@ -29,73 +31,32 @@
     }
 
     function attachModelSwitcher(modelSelectEl, currentModelEl, statusEl) {
-        if (!modelSelectEl || !currentModelEl || !statusEl) return;
-        modelSelectEl.addEventListener('change', async () => {
+        if (!modelSelectEl || !statusEl) return;
+        const keyToDisplay = { blip: 'BLIP', blip2: 'BLIP2', gemma: 'Gemma', intern_vlm: 'InternVLM' };
+        modelSelectEl.addEventListener('change', () => {
             const selectedModel = modelSelectEl.value;
-            statusEl.textContent = 'Switching model...';
-            try {
-                const resp = await fetch('/set-model', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({model: selectedModel})
-                });
-                if (!resp.ok) throw new Error('Failed to switch model');
-                const data = await resp.json();
-                currentModelEl.textContent = data.model_name || selectedModel;
-                // Update the current flag prompt if provided by the server
-                const flagEl = document.getElementById('current-flag-prompt');
-                if (flagEl) flagEl.textContent = data.flag_caption_prompt || '';
-                // Also update the textarea value so users can see/edit it immediately
-                const flagInput = document.getElementById('flag-prompt');
-                if (flagInput) flagInput.value = data.flag_caption_prompt || '';
-                statusEl.textContent = 'Model switched.';
-            } catch (err) {
-                statusEl.innerHTML = `<span class="error">${err.message}</span>`;
-            }
+            if (currentModelEl) currentModelEl.textContent = keyToDisplay[selectedModel] || selectedModel;
+            statusEl.textContent = 'Model selected (applies per request).';
         });
     }
 
     function attachSavePrompt(saveBtnEl, inputEl, currentPromptEl, promptStatusEl) {
         if (!saveBtnEl || !inputEl || !currentPromptEl || !promptStatusEl) return;
-        saveBtnEl.addEventListener('click', async () => {
-            const promptVal = inputEl.value;
-            promptStatusEl.textContent = 'Saving...';
-            try {
-                const resp = await fetch('/set-caption-prompt', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({caption_prompt: promptVal})
-                });
-                if (!resp.ok) throw new Error('Failed to save caption prompt');
-                const data = await resp.json();
-                currentPromptEl.textContent = data.caption_prompt || '';
-                promptStatusEl.textContent = 'Saved';
-            } catch (err) {
-                promptStatusEl.innerHTML = `<span class='error'>${err.message}</span>`;
-            }
+        saveBtnEl.addEventListener('click', () => {
+            const promptVal = inputEl.value || '';
+            currentPromptEl.textContent = promptVal;
+            try { localStorage.setItem('caption_prompt', promptVal); } catch (_) {}
+            promptStatusEl.textContent = 'Saved';
         });
     }
 
     function attachSaveFlagPrompt(saveBtnEl, inputEl, currentFlagPromptEl, promptStatusEl) {
         if (!saveBtnEl || !inputEl || !currentFlagPromptEl || !promptStatusEl) return;
-        saveBtnEl.addEventListener('click', async () => {
-            const promptVal = inputEl.value;
-            promptStatusEl.textContent = 'Saving...';
-            try {
-                const resp = await fetch('/set-flag-prompt', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({flag_caption_prompt: promptVal})
-                });
-                if (!resp.ok) throw new Error('Failed to save flag prompt');
-                const data = await resp.json();
-                currentFlagPromptEl.textContent = data.flag_caption_prompt || '';
-                // Reflect normalized value back into the textarea
-                inputEl.value = data.flag_caption_prompt || '';
-                promptStatusEl.textContent = 'Saved';
-            } catch (err) {
-                promptStatusEl.innerHTML = `<span class='error'>${err.message}</span>`;
-            }
+        saveBtnEl.addEventListener('click', () => {
+            const promptVal = inputEl.value || '';
+            currentFlagPromptEl.textContent = promptVal;
+            try { localStorage.setItem('flag_caption_prompt', promptVal); } catch (_) {}
+            promptStatusEl.textContent = 'Saved';
         });
     }
 
@@ -146,8 +107,7 @@
         }
 
         function isCollectiveSupported() {
-            const modelName = (currentModelEl.textContent || '').trim();
-            const key = (modelNameToKey && modelNameToKey[modelName]) || null;
+            const key = (modelSelect && modelSelect.value) || '';
             return key === 'gemma' || key === 'intern_vlm';
         }
 
@@ -248,9 +208,18 @@
             const collective = !!modeToggle.checked;
             statusEl.textContent = collective ? 'Uploading and generating collective caption...' : 'Uploading and captioning...';
 
+            // Build query params for per-request model and prompts
+            const params = new URLSearchParams();
+            if (modelSelect && modelSelect.value) params.set('model', modelSelect.value);
+            const cap = (captionPromptInput && captionPromptInput.value || '').trim();
+            if (cap) params.set('caption_prompt', cap);
+            const flag = (flagPromptInput && flagPromptInput.value || '').trim();
+            if (flag) params.set('flag_caption_prompt', flag);
+            const qs = params.toString();
+
             try {
                 if (collective) {
-                    const resp = await fetch('/caption-collective-images', {method: 'POST', body: formData});
+                    const resp = await fetch(`/api/caption-collective-images${qs ? `?${qs}` : ''}`, {method: 'POST', body: formData});
                     const text = await resp.text();
                     if (!resp.ok) throw new Error(`Server error (${resp.status}): ${text}`);
                     const data = JSON.parse(text);
@@ -267,7 +236,7 @@
                     resultsEl.style.display = 'block';
                     statusEl.textContent = 'Done';
                 } else {
-                    const resp = await fetch('/caption-images', {method: 'POST', body: formData});
+                    const resp = await fetch(`/api/caption-images${qs ? `?${qs}` : ''}`, {method: 'POST', body: formData});
                     if (!resp.ok) {
                         const t = await resp.text();
                         throw new Error(`Server error (${resp.status}): ${t}`);

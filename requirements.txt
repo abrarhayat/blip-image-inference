@@ -1,10 +1,28 @@
-requests
-Pillow
-transformers
-torch
-torchvision
-flask
-python-dotenv
-redis
-spacy
-nltk
+fastapi==0.118.0
+python-multipart==0.0.20
+uvicorn==0.37.0
+gunicorn==23.0.0
+pydantic==2.11.10
+python-dotenv==1.1.1
+
+# ML stack
+transformers==4.57.0
+torch==2.8.0
+accelerate==1.10.1
+
+# Imaging
+pillow==11.3.0
+
+# Caching
+redis==6.4.0
+
+# Observability (optional)
+prometheus-fastapi-instrumentator==7.1.0
+
+# NLP tags (if used)
+spacy==3.8.7
+nltk==3.9.2
+
+#Testing
+pytest==8.4.2
+httpx==0.28.1

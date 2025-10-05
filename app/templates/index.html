@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>VLM Image Captioning Service</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/index.css') }}">
 </head>
 <body>
 <header>
@@ -63,6 +63,6 @@
 <div id="previews"></div>
 <div id="results"></div>
 
-<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+<script src="{{ url_for('static', path='js/index.js') }}"></script>
 </body>
 </html>
