@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.prompts import DEFAULT_PROMPTS
 from app.routers import caption, admin
 from app.settings import settings
 
@@ -45,7 +46,7 @@ templates = Jinja2Templates(directory="app/templates")
 # Simple test page at root
 @app.get("/")
 def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "default_prompts": DEFAULT_PROMPTS})
 
 
 # Lightweight metrics at /metrics (Prometheus)

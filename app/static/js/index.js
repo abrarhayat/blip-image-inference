@@ -40,33 +40,11 @@
         });
     }
 
-    function attachSavePrompt(saveBtnEl, inputEl, currentPromptEl, promptStatusEl) {
-        if (!saveBtnEl || !inputEl || !currentPromptEl || !promptStatusEl) return;
-        saveBtnEl.addEventListener('click', () => {
-            const promptVal = inputEl.value || '';
-            currentPromptEl.textContent = promptVal;
-            try { localStorage.setItem('caption_prompt', promptVal); } catch (_) {}
-            promptStatusEl.textContent = 'Saved';
-        });
-    }
-
-    function attachSaveFlagPrompt(saveBtnEl, inputEl, currentFlagPromptEl, promptStatusEl) {
-        if (!saveBtnEl || !inputEl || !currentFlagPromptEl || !promptStatusEl) return;
-        saveBtnEl.addEventListener('click', () => {
-            const promptVal = inputEl.value || '';
-            currentFlagPromptEl.textContent = promptVal;
-            try { localStorage.setItem('flag_caption_prompt', promptVal); } catch (_) {}
-            promptStatusEl.textContent = 'Saved';
-        });
-    }
-
     window.CommonUI = {
         modelNameToKey,
         setInitialModelSelection,
         attachResetRedis,
-        attachModelSwitcher,
-        attachSavePrompt,
-        attachSaveFlagPrompt,
+        attachModelSwitcher
     };
 })();
 
@@ -82,13 +60,7 @@
         const modelSelect = document.getElementById('model-select');
         const currentModelEl = document.getElementById('current-model');
         const captionPromptInput = document.getElementById('caption-prompt');
-        const savePromptBtn = document.getElementById('save-prompt-btn');
-        const currentPromptEl = document.getElementById('current-prompt');
-        const promptStatusEl = document.getElementById('prompt-status');
         const flagPromptInput = document.getElementById('flag-prompt');
-        const saveFlagPromptBtn = document.getElementById('save-flag-prompt-btn');
-        const currentFlagPromptEl = document.getElementById('current-flag-prompt');
-        const flagPromptStatusEl = document.getElementById('flag-prompt-status');
         const modeToggle = document.getElementById('mode-toggle');
         const modeWarning = document.getElementById('mode-warning');
 
@@ -100,11 +72,31 @@
             attachModelSwitcher(modelSelect, currentModelEl, statusEl);
         }
 
-        const {attachSavePrompt, attachSaveFlagPrompt, modelNameToKey} = window.CommonUI || {};
-        if (window.CommonUI) {
-            attachSavePrompt(savePromptBtn, captionPromptInput, currentPromptEl, promptStatusEl);
-            attachSaveFlagPrompt(saveFlagPromptBtn, flagPromptInput, currentFlagPromptEl, flagPromptStatusEl);
+        const {modelNameToKey} = window.CommonUI || {};
+
+        // Default prompts support (from index.html)
+        const defaultPromptsMap = (window.DEFAULT_PROMPTS || {});
+        function applyDefaultPromptsForModel(modelKey, {onlyIfEmpty = false} = {}) {
+            const defaults = defaultPromptsMap[modelKey] || {};
+            if (captionPromptInput) {
+                if (!onlyIfEmpty || !captionPromptInput.value) {
+                    captionPromptInput.value = defaults.caption_prompt || '';
+                }
+            }
+            if (flagPromptInput) {
+                if (!onlyIfEmpty || !flagPromptInput.value) {
+                    flagPromptInput.value = defaults.flag_caption_prompt || '';
+                }
+            }
         }
+
+        // Prefill from defaults on initial load only if empty
+        applyDefaultPromptsForModel(modelSelect ? modelSelect.value : '', { onlyIfEmpty: true });
+
+        // Update prompts whenever the selected model changes
+        modelSelect && modelSelect.addEventListener('change', () => {
+            applyDefaultPromptsForModel(modelSelect.value);
+        });
 
         function isCollectiveSupported() {
             const key = (modelSelect && modelSelect.value) || '';

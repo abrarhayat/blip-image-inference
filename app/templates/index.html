@@ -19,7 +19,6 @@
             <option value="intern_vlm">Intern VLM</option>
         </select>
     </div>
-    <div><p class="small">Current Model: <strong id="current-model">{{ model_name }}</strong></p></div>
 
     <div class="actions">
         <label for="mode-toggle" class="small">Collective mode</label>
@@ -34,20 +33,14 @@
     <div class="actions wrap">
         <label for="caption-prompt" class="small">Caption Prompt:</label>
         <textarea id="caption-prompt" placeholder="Enter optional caption prompt">{{ caption_prompt or '' }}</textarea>
-        <button id="save-prompt-btn" type="button">Save Prompt</button>
-        <span class="small" id="prompt-status"></span>
     </div>
 
     <div class="actions wrap">
         <label for="flag-prompt" class="small">Flag Caption Prompt:</label>
         <textarea id="flag-prompt" placeholder="Enter optional flag prompt"
                   style="padding: 4px 8px; min-width: 280px; min-height: 80px; resize: vertical; border: 1px solid #ccc;">{{ flag_caption_prompt or '' }}</textarea>
-        <button id="save-flag-prompt-btn" type="button">Save Flag Prompt</button>
-        <span class="small" id="flag-prompt-status"></span>
     </div>
 
-    <p class="small">Current Prompt: <strong id="current-prompt">{{ caption_prompt }}</strong></p>
-    <p class="small">Current Flag Prompt: <strong id="current-flag-prompt">{{ flag_caption_prompt }}</strong></p>
     <p class="small">Upload one or more images for captions. In collective mode, the server produces one caption for all
         images.</p>
 </header>
@@ -64,5 +57,8 @@
 <div id="results"></div>
 
 <script src="{{ url_for('static', path='js/index.js') }}"></script>
+<script>
+    window.DEFAULT_PROMPTS = {{ default_prompts | tojson }};
+</script>
 </body>
 </html>

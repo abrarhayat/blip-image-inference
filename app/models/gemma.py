@@ -3,9 +3,11 @@ import time
 import torch
 from transformers import AutoProcessor, Gemma3Processor, Gemma3ForConditionalGeneration
 
+from app.prompts import DEFAULT_PROMPTS
+
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-DEFAULT_GEMMA_PROMPT = "You are a helpful assistant who generates captions for images. You keep the caption concise within 25 words and return a single caption without any additional text."
-DEFAULT_FLAG_GEMMA_PROMPT = "You are a helpful assistant who generates json objects from images. You respond with a single JSON object with a single key 'flag' and value 'true' or 'false' based on any of the images have any animals on them. DO NOT include any formatting, additional text, or explanation. Only respond with the JSON object."
+DEFAULT_GEMMA_PROMPT = DEFAULT_PROMPTS.get("gemma").get("caption_prompt")
+DEFAULT_FLAG_GEMMA_PROMPT = DEFAULT_PROMPTS.get("gemma").get("flag_caption_prompt")
 
 
 def initialize_gemma_model() -> tuple[Gemma3Processor, Gemma3ForConditionalGeneration, str]:
