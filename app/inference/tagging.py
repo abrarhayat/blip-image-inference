@@ -14,6 +14,12 @@ except OSError:
 def generate_spacy_tags(caption: str) -> List[str]:
     """Generate tags from caption using spaCy NLP."""
     # Use noun_chunks + nouns + adjectives, then dedupe and limit
+    NLP = None
+    try:
+        NLP = spacy.load("en_core_web_sm")
+    except OSError:
+        from spacy.cli import download
+        download("en_core_web_sm")
     doc = NLP(caption)
     candidates_tags = []
     # nouns and proper nouns and adjectives
