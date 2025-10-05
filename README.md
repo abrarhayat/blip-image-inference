@@ -48,6 +48,10 @@ cp .env.example .env
 ```bash
 uvicorn --env-file .env app.main:app --reload --port 8000
 ```
+or simply
+```bash
+sh scripts/start-local.sh
+```
 
 6) Open the test page and docs
 - Test page (upload images): http://localhost:8000/

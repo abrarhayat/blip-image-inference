@@ -1,7 +1,13 @@
-import os
+import os, logging
 
+from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel, Field
 
+# Load .env from current directory or nearest parent automatically
+# This makes uvicorn runs work regardless of --env-file usage or CWD
+load_dotenv(find_dotenv(), override=False)
+
+logger = logging.getLogger(__name__)
 
 class Settings(BaseModel):
     # Environment flags
@@ -27,3 +33,6 @@ class Settings(BaseModel):
 
 
 settings = Settings()
+
+if settings.DEBUG:
+    logger.warning("DEBUG mode is enabled")
